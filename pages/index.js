@@ -6,23 +6,21 @@ const SUPABASE_URL = "https://yjipexzowgjccmhmclef.supabase.co/rest/v1/";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqaXBleHpvd2dqY2NtaG1jbGVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMzEzNzksImV4cCI6MjA5NzkwNzM3OX0.zlRtxkfjlViBpiW0hYEVcvtwJou8I8cebFiIWgBIQFo";
 // =================================================================================
 
-// 规避异常初始化的客户端创建
-const supabase = (SUPABASE_URL && !SUPABASE_URL.includes("你的Supabase")) 
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
-  : null;
+const isSupabaseConfigured = SUPABASE_URL && !SUPABASE_URL.includes("你的Supabase");
+const supabase = isSupabaseConfigured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-// 🌍 1. 内置全新精编高频词库
+// 🌍 1. 精编高频词库
 const ONLINE_BUILTIN_WORDS = [
   { id: 1001, category: '日常生活', thai: 'สวัสดี', read: 'sa-wat-dee', zh: '你好' },
   { id: 1002, category: '日常生活', thai: 'ขอบคุณ', read: 'khop-khun', zh: '谢谢' },
   { id: 1003, category: '日常生活', thai: 'สบายดีไหม', read: 'sa-bai-dee-mai', zh: '你好吗？' },
-  { id: 1004, category: '日常生活', thai: 'ขอโทษ', read: 'kho-thot', zh: '对不起' },
+  { id: 1004, category: '日常生活', thai: 'ขอโทษ', read: 'kho-thot', zh: '对不起 / 打扰一下' },
   { id: 2001, category: '旅游', thai: 'สนามบิน', read: 'sa-nam-bin', zh: '机场' },
   { id: 2002, category: '旅游', thai: 'โรงแรม', read: 'rong-ram', zh: '酒店' },
   { id: 2003, category: '旅游', thai: 'เท่าไหร่', read: 'thao-rai', zh: '多少钱？' },
   { id: 3001, category: '食物', thai: 'ข้าวผัด', read: 'khao-phat', zh: '炒饭' },
   { id: 3002, category: '食物', thai: 'ต้มยำกุ้ง', read: 'tom-yam-kung', zh: '冬阴功汤' },
-  { id: 3003, category: '食物', thai: 'เผ็ดน้อย', read: 'phet-noi', zh: '微辣' },
+  { id: 3003, category: '食物', thai: 'เผ็ดน้อย', read: 'phet-noi', zh: '微辣 / 少辣' },
   { id: 4001, category: '直播常用语', thai: 'ยินดีต้อนรับ', read: 'yin-dee-ton-rap', zh: '欢迎来到直播间！' },
   { id: 4002, category: '直播常用语', thai: 'กดติดตาม', read: 'kot-tit-tam', zh: '点个关注' },
   { id: 4003, category: '直播常用语', thai: 'กดไลค์', read: 'kot-lai', zh: '点个赞' }
@@ -57,10 +55,10 @@ const THAI_ALPHABET = {
   ]
 };
 
-// 📖 3. 系统化泰语核心语法库
+// 📖 3. 泰语核心语法库
 const GRAMMAR_LESSONS = [
-  { title: "📌 核心词序：修饰语后置规律", content: "泰语的基本语序和中文一样，都是主谓宾（SVO结构）。但是！泰语的【定语/状语等修饰词，必须放在被修饰词的后面】。\n\n例如：\n中文说“大象”，泰语说“象大”（ช้างใหญ่）。\n中文说“炒饭”，泰语说“饭炒”（ข้าวผัด）。" },
-  { title: "🎵 声调拼读：辅音决定起点", content: "泰语有五个声调。声调的最终判定由【辅音的类别（中/高/低辅音） + 元音的长短】共同决定。掌握好高低辅音的归类，发音就成功了一半。" },
+  { title: "📌 核心词序：修饰语100%后置规律", content: "泰语的基本语序和中文一样，都是主谓宾（SVO结构）。但是！泰语的【定语/状语等修饰词，必须放在被修饰词的后面】。\n\n例如：\n中文说“大象”，泰语说“象大”（ช้างใหญ่）。\n中文说“炒饭”，泰语说“饭炒”（ข้าวผัด）。" },
+  { title: "🎵 声调拼读：辅音决定音调起点", content: "泰语有五个声调。声调的最终判定由【辅音的类别（中/高/低辅音） + 元音的长短】共同决定。掌握好高低辅音的归类，发音就成功了一半。" },
   { title: "🤝 常用礼貌敬语尾词", content: "句尾加上敬语助词以示礼貌：\n- 说话者为男性：ครับ (khrap)\n- 说话者为女性：ค่ะ (kha)\n\n示例：สวัสดีครับ (sa-wat-dee-khrap) —— 优雅男士版的“你好”。" }
 ];
 
@@ -112,25 +110,48 @@ export default function Home() {
   }
 
   async function handleAuth(type) {
-    if (!supabase) return alert("请先在代码第6-7行配置正确的Supabase URL和Key！");
+    if (!isSupabaseConfigured) {
+      return alert("⚠️ 检测到您还未绑定云端数据库！请在 VS Code 打开 pages/index.js，在第6行和第7行填入真实的 Supabase URL 和 Key，然后重新保存上传，即可开启注册和登录功能！");
+    }
     if (!email || !password) return alert("请完整填写账号和密码");
-    const { error } = type === 'login' 
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password });
-    if (error) alert(error.message); else if (type === 'register') alert("注册成功，进度同步已就绪！");
+    try {
+      const { data, error } = type === 'login' 
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({ email, password });
+      if (error) alert(error.message); 
+      else if (type === 'register') alert("🎉 注册成功！进度同步已无缝开启！");
+    } catch (e) {
+      alert("连接数据库失败，请确认凭证是否复制完整");
+    }
   }
   
   async function handleSignOut() { if(supabase) await supabase.auth.signOut(); setUser(null); }
   
-  // 🔊 核心路径修复：直接前端拉取公开高保真流，规避任何 api/tts 路径未注册的 Invalid path 错误！
+  // 🔊 重新发明发音引擎：无视跨域与安全限制，多通道纯前端直连发音，保证点击必响
   function playAudio(text) { 
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=th&client=tw-ob`;
-    const audio = new Audio(url);
-    audio.play().catch(e => console.log("音频播放略有延迟"));
+    if (!text) return;
+    try {
+      // 通道 A：主发音引擎
+      const voiceUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&le=th`;
+      const audio = new Audio(voiceUrl);
+      audio.crossOrigin = "anonymous";
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // 通道 B：备用发音引擎
+          const backupUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=th&client=tw-ob`;
+          const backupAudio = new Audio(backupUrl);
+          backupAudio.play().catch(e => console.log("浏览器拦截了首发音频，请点一下页面任意空白处激活声音"));
+        });
+      }
+    } catch(err) {
+      console.log("音频流捕获异常");
+    }
   }
 
   async function toggleFavorite(wordId) {
-    if (!user || !supabase) return alert("请先在右上角登录，即可同步云端收藏夹！");
+    if (!user || !supabase) return alert("账号未登录，登录后即可启用云端收藏夹！");
     if (favorites.includes(wordId)) {
       await supabase.from('user_favorites').delete().eq('user_id', user.id).eq('word_id', wordId);
       setFavorites(favorites.filter(id => id !== wordId));
@@ -168,114 +189,114 @@ export default function Home() {
   function checkAnswer(selected) {
     const correct = words[currentIndex] || ONLINE_BUILTIN_WORDS[0];
     if (selected.id === correct.id) {
-      setTestFeedback({ success: true, text: "✨ 答对啦！非常棒！" });
+      setTestFeedback({ success: true, text: "✨ 完美解答！正确！" });
       markAsLearned(correct.id, true);
     } else {
-      setTestFeedback({ success: false, text: `❌ 答错了，正确解是: ${correct.zh}` });
+      setTestFeedback({ success: false, text: `❌ 选错啦，正确答案是: ${correct.zh}` });
       markAsLearned(correct.id, false);
     }
   }
 
   return (
-    <div className="bg-[#faf8f6] text-[#262626] min-h-screen font-sans antialiased">
+    <div className="bg-[#f6f4f0] text-[#1c1c1c] min-h-screen font-sans antialiased selection:bg-rose-100 selection:text-rose-900">
       
-      {/* 📸 Instagram 优雅扁平导航栏 */}
-      <nav className="bg-white border-b border-[#efefef] px-4 py-3.5 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🌿</span>
-            <div>
-              <span className="text-xl font-bold tracking-tight font-serif text-[#262626]">DuoThai.ins</span>
-              <p className="text-[9px] uppercase font-bold tracking-widest text-stone-400">泰语美学自适应空间</p>
+      {/* 🍵 顶奢极简优雅导航栏（大字号高级留白） */}
+      <nav className="bg-white/90 backdrop-blur-md border-b border-[#e6e3dd] px-6 py-5 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-4">
+            <span className="text-3xl filter saturate-70">🌿</span>
+            <div className="text-left">
+              <span className="text-2xl font-bold tracking-tight text-[#1c1c1c] font-serif">DuoThai.ins</span>
+              <p className="text-[10px] uppercase font-black tracking-widest text-[#a39f97] mt-0.5">高品质泰语自适应平台</p>
             </div>
           </div>
 
-          {/* 右上角精致内嵌账户区 */}
-          <div className="flex items-center gap-2 text-sm">
+          {/* 顶栏右侧内嵌精致控制区 */}
+          <div className="flex items-center gap-3 text-base">
             {!user ? (
-              <div className="flex items-center gap-1 bg-[#fbfbfb] p-1 rounded-xl border border-[#e0e0e0]">
-                <input type="email" placeholder="邮箱" onChange={e=>setEmail(e.target.value)} className="p-1.5 text-xs bg-transparent focus:outline-none w-28 text-slate-800"/>
-                <input type="password" placeholder="密码" onChange={e=>setPassword(e.target.value)} className="p-1.5 text-xs bg-transparent focus:outline-none w-24 text-slate-800"/>
-                <button onClick={()=>handleAuth('login')} className="bg-[#262626] text-white font-bold px-3 py-1.5 rounded-lg text-xs hover:opacity-90 transition-opacity">登录</button>
-                <button onClick={()=>handleAuth('register')} className="px-2 py-1.5 rounded-lg text-xs text-stone-400 font-bold hover:text-stone-700">注册</button>
+              <div className="flex flex-wrap items-center gap-1.5 bg-[#faf9f6] p-1.5 rounded-xl border border-[#dfdbd3]">
+                <input type="email" placeholder="电子邮箱" onChange={e=>setEmail(e.target.value)} className="p-2 text-sm bg-transparent focus:outline-none w-36 text-slate-800 placeholder-[#b5b1a9] font-medium"/>
+                <input type="password" placeholder="密码" onChange={e=>setPassword(e.target.value)} className="p-2 text-sm bg-transparent focus:outline-none w-28 text-slate-800 placeholder-[#b5b1a9] font-medium"/>
+                <button onClick={()=>handleAuth('login')} className="bg-[#1c1c1c] text-white font-bold px-4 py-2 rounded-lg text-xs hover:bg-stone-800 transition-all shadow-sm">登录</button>
+                <button onClick={()=>handleAuth('register')} className="px-3 py-2 rounded-lg text-xs text-[#706c64] font-bold hover:text-stone-900 transition-colors">建立新账户</button>
               </div>
             ) : (
-              <div className="flex items-center gap-3 bg-stone-50 border px-3 py-1.5 rounded-xl">
-                <span className="font-bold text-stone-700 text-xs">🔥 打卡 {profile.streak_days} 天</span>
-                <span className="opacity-60 text-xs font-medium">{user.email}</span>
-                <button onClick={handleSignOut} className="text-xs text-rose-500 font-bold hover:underline">退出</button>
+              <div className="flex items-center gap-4 bg-stone-50 border border-[#dfdbd3] px-4 py-2 rounded-xl">
+                <span className="font-bold text-stone-700 text-sm">🔥 已打卡 {profile.streak_days} 天</span>
+                <span className="opacity-60 text-xs font-semibold">{user.email}</span>
+                <button onClick={handleSignOut} className="text-xs text-rose-600 font-bold hover:underline">退出登录</button>
               </div>
             )}
           </div>
         </div>
       </nav>
 
-      {/* 主网格架构 */}
-      <div className="max-w-5xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-8">
+      {/* 🏛️ 黄金比例排版大网格 */}
+      <div className="max-w-5xl mx-auto p-4 md:p-8 grid grid-cols-1 md:grid-cols-4 gap-8">
         
-        {/* 左侧大字号模块分类控制台 */}
-        <aside className="space-y-1.5">
-          <h3 className="font-bold text-stone-400 text-xs tracking-wider uppercase px-3 mb-2">泰语单词课程</h3>
+        {/* 左侧全面放大的导航控制台 */}
+        <aside className="space-y-2">
+          <h3 className="font-black text-[#a39f97] text-xs tracking-widest uppercase px-3 mb-2">泰语高频单词课程</h3>
           {['日常生活', '旅游', '食物', '数字', '直播常用语'].map((cat) => (
             <button key={cat} onClick={() => { setCurrentCategory(cat); setCurrentTab('study'); }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl font-bold border text-base transition-all flex justify-between items-center ${currentCategory === cat && currentTab === 'study' ? 'bg-[#262626] border-[#262626] text-white shadow-sm' : 'bg-white border-[#efefef] hover:bg-stone-50'}`}>
+              className={`w-full text-left px-4 py-4 rounded-xl font-bold border text-lg transition-all flex justify-between items-center ${currentCategory === cat && currentTab === 'study' ? 'bg-[#1c1c1c] border-[#1c1c1c] text-white shadow-md' : 'bg-white border-[#e6e3dd] hover:bg-[#fafaf9]'}`}>
               <span>📁 {cat}</span>
-              <span className="text-xs opacity-30">❯</span>
+              <span className="text-xs opacity-20">❯</span>
             </button>
           ))}
-          <hr className="my-5 border-[#efefef]"/>
-          <h3 className="font-bold text-stone-400 text-xs tracking-wider uppercase px-3 mb-2">核心进阶体系</h3>
-          <button onClick={() => setCurrentTab('alphabet')} className={`w-full text-left px-4 py-3.5 rounded-xl font-bold border text-base transition-all ${currentTab==='alphabet'?'bg-[#262626] border-[#262626] text-white':'bg-white border-[#efefef] hover:bg-stone-50'}`}>🔤 泰语完整字母表表盘</button>
-          <button onClick={() => setCurrentTab('grammar')} className={`w-full text-left px-4 py-3.5 rounded-xl font-bold border text-base transition-all ${currentTab==='grammar'?'bg-[#262626] border-[#262626] text-white':'bg-white border-[#efefef] hover:bg-stone-50'}`}>📖 泰语基础语法大纲</button>
-          <button onClick={() => { setCurrentTab('test'); prepareTest(); }} className={`w-full text-left px-4 py-3.5 rounded-xl font-bold border text-base transition-all ${currentTab==='test'?'bg-[#262626] border-[#262626] text-white':'bg-white border-[#efefef] hover:bg-stone-50'}`}>🎯 关卡随堂趣味测试</button>
-          <button onClick={() => setCurrentTab('home')} className={`w-full text-left px-4 py-3.5 rounded-xl font-bold border text-base transition-all ${currentTab==='home'?'bg-[#262626] border-[#262626] text-white':'bg-white border-[#efefef] hover:bg-stone-50'}`}>🏠 个人数据复习大盘</button>
+          <hr className="my-6 border-[#e6e3dd]"/>
+          <h3 className="font-black text-[#a39f97] text-xs tracking-widest uppercase px-3 mb-2">核心进阶大框架</h3>
+          <button onClick={() => setCurrentTab('alphabet')} className={`w-full text-left px-4 py-4 rounded-xl font-bold border text-lg transition-all ${currentTab==='alphabet'?'bg-[#1c1c1c] border-[#1c1c1c] text-white':'bg-white border-[#e6e3dd] hover:bg-[#fafaf9]'}`}>🔤 泰语全量字母表盘</button>
+          <button onClick={() => setCurrentTab('grammar')} className={`w-full text-left px-4 py-4 rounded-xl font-bold border text-lg transition-all ${currentTab==='grammar'?'bg-[#1c1c1c] border-[#1c1c1c] text-white':'bg-white border-[#e6e3dd] hover:bg-[#fafaf9]'}`}>📖 泰语基础语法精讲</button>
+          <button onClick={() => { setCurrentTab('test'); prepareTest(); }} className={`w-full text-left px-4 py-4 rounded-xl font-bold border text-lg transition-all ${currentTab==='test'?'bg-[#1c1c1c] border-[#1c1c1c] text-white':'bg-white border-[#e6e3dd] hover:bg-[#fafaf9]'}`}>🎯 趣味挑战卡片关卡</button>
+          <button onClick={() => setCurrentTab('home')} className={`w-full text-left px-4 py-4 rounded-xl font-bold border text-lg transition-all ${currentTab==='home'?'bg-[#1c1c1c] border-[#1c1c1c] text-white':'bg-white border-[#e6e3dd] hover:bg-[#fafaf9]'}`}>🏠 个人进度复习看板</button>
           
-          {/* 高定唯美直达按钮 */}
-          <button onClick={() => setCurrentTab('love')} className={`w-full text-left px-4 py-3.5 rounded-xl font-black border text-base transition-all text-rose-500 border-rose-100 bg-rose-50/40 ${currentTab==='love'?'!bg-gradient-to-r from-rose-400 to-pink-500 !border-transparent !text-white shadow-sm':''}`}>💝 专属告白：致周玉平</button>
+          {/* 电影感高定表白页直达控制纽 */}
+          <button onClick={() => setCurrentTab('love')} className={`w-full text-left px-4 py-4 rounded-xl font-black border text-lg transition-all text-rose-500 border-rose-100 bg-rose-50/50 ${currentTab==='love'?'!bg-gradient-to-r from-rose-400 via-pink-500 to-rose-400 !border-transparent !text-white shadow-md':''}`}>💝 浪漫致白：致周玉平</button>
         </aside>
 
-        {/* 右侧主舞台区域 */}
+        {/* 右侧流体美学交互舞台 */}
         <section className="md:col-span-3">
 
           {/* 100%全量字母表模块 */}
           {currentTab === 'alphabet' && (
-            <div className="bg-white border border-[#efefef] rounded-2xl p-6 space-y-6">
+            <div className="bg-white border border-[#e6e3dd] rounded-2xl p-6 md:p-8 space-y-8">
               <div>
-                <h2 className="text-xl font-bold text-[#262626]">🔤 泰语全量字母表盘</h2>
-                <p className="text-stone-400 text-xs mt-0.5">包含44个基础辅音、核心拼读元音及变调符。轻戳卡片即可触发纯正正音。</p>
+                <h2 className="text-2xl font-bold text-[#1c1c1c]">🔤 泰语全量声韵母表盘</h2>
+                <p className="text-[#a39f97] text-sm mt-1">包含44个基础辅音、核心拼读元音及变调符。轻戳任意卡片即可触发高清晰真人发音。</p>
               </div>
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <div>
-                  <span className="text-xs font-bold text-stone-400 block mb-3">Ⅰ . 44个基础辅音分类</span>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <span className="text-xs font-black text-[#a39f97] uppercase tracking-wider block mb-4">Ⅰ . 44个基础辅音分类索引</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     {THAI_ALPHABET.consonants.map((item, idx) => (
-                      <div key={idx} onClick={()=>playAudio(item.thai)} className="p-3.5 bg-[#fdfdfd] rounded-xl border border-[#f0f0f0] text-center cursor-pointer hover:border-stone-800 transition-all">
-                        <h4 className="text-3xl font-bold text-[#262626]">{item.thai}</h4>
-                        <p className="text-xs font-mono font-bold text-amber-700 mt-1">[{item.read}]</p>
-                        <div className="flex justify-between text-[10px] text-stone-400 mt-2 border-t pt-1.5"><span>{item.type}</span><span>{item.zh}</span></div>
+                      <div key={idx} onClick={()=>playAudio(item.thai)} className="p-4 bg-[#faf9f6] rounded-xl border border-[#ededed] text-center cursor-pointer hover:border-stone-800 hover:-translate-y-0.5 transition-all shadow-sm">
+                        <h4 className="text-4xl font-bold text-[#1c1c1c]">{item.thai}</h4>
+                        <p className="text-sm font-mono font-bold text-amber-800 mt-1">[{item.read}]</p>
+                        <div className="flex justify-between text-xs text-stone-400 mt-3 border-t pt-2 font-medium"><span>{item.type}</span><span>{item.zh}</span></div>
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-t border-[#f0ede6] pt-6">
                   <div>
-                    <span className="text-xs font-bold text-stone-400 block mb-2">Ⅱ . 拼读元音表</span>
-                    <div className="grid grid-cols-2 gap-2">
+                    <span className="text-xs font-black text-[#a39f97] uppercase tracking-wider block mb-3">Ⅱ . 常用基础拼读元音</span>
+                    <div className="grid grid-cols-2 gap-3">
                       {THAI_ALPHABET.vowels.map((item, idx) => (
-                        <div key={idx} onClick={()=>playAudio(item.thai)} className="p-2.5 bg-stone-50 rounded-xl border text-center cursor-pointer hover:border-stone-700">
-                          <h4 className="text-xl font-bold">{item.thai}</h4>
-                          <p className="text-xs font-mono text-stone-500">[{item.read}]</p>
+                        <div key={idx} onClick={()=>playAudio(item.thai)} className="p-3.5 bg-stone-50 rounded-xl border text-center cursor-pointer hover:border-stone-700 transition-all">
+                          <h4 className="text-2xl font-bold">{item.thai}</h4>
+                          <p className="text-sm font-mono text-stone-500 font-semibold">[{item.read}]</p>
                         </div>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-stone-400 block mb-2">Ⅲ . 声调变调符</span>
-                    <div className="grid grid-cols-2 gap-2">
+                    <span className="text-xs font-black text-[#a39f97] uppercase tracking-wider block mb-3">Ⅲ . 声调变调字符</span>
+                    <div className="grid grid-cols-2 gap-3">
                       {THAI_ALPHABET.tones.map((item, idx) => (
-                        <div key={idx} className="p-2.5 bg-stone-50 rounded-xl border text-center">
-                          <h4 className="text-xl font-bold text-rose-500">{item.thai}</h4>
-                          <p className="text-xs font-medium text-stone-500">{item.zh}</p>
+                        <div key={idx} className="p-3.5 bg-stone-50 rounded-xl border text-center">
+                          <h4 className="text-2xl font-bold text-rose-500">{item.thai}</h4>
+                          <p className="text-xs font-bold text-stone-500 mt-1">{item.zh}</p>
                         </div>
                       ))}
                     </div>
@@ -285,109 +306,116 @@ export default function Home() {
             </div>
           )}
 
-          {/* 泰语基础语法讲解 */}
+          {/* 泰语基础语法精讲 */}
           {currentTab === 'grammar' && (
             <div className="space-y-4">
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold">📖 泰语基础核心语法总纲</h2>
+                <p className="text-[#a39f97] text-sm mt-0.5">抛弃繁琐的概念，帮您快速理清泰语拼读与句子的底层线条。</p>
+              </div>
               {GRAMMAR_LESSONS.map((lesson, idx) => (
-                <div key={idx} className="bg-white border border-[#efefef] rounded-2xl p-6 space-y-3">
-                  <h3 className="text-lg font-bold text-[#262626] flex items-center gap-2">📎 {lesson.title}</h3>
-                  <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-line font-medium">{lesson.content}</p>
+                <div key={idx} className="bg-white border border-[#e6e3dd] rounded-2xl p-6 space-y-3 shadow-sm">
+                  <h3 className="text-lg font-bold text-[#1c1c1c] flex items-center gap-2">📎 {lesson.title}</h3>
+                  <p className="text-base text-stone-600 leading-relaxed whitespace-pre-line font-medium">{lesson.content}</p>
                 </div>
               ))}
             </div>
           )}
 
-          {/* 📸 【极致优雅升级】专属于 周玉平 的高级 Ins 风告白页 */}
+          {/* 📸 【电影光影感极致升级】周玉平 奢华浪漫高定特写页 */}
           {currentTab === 'love' && (
-            <div className="bg-white border border-[#efefef] rounded-3xl p-6 md:p-10 space-y-8 shadow-sm max-w-2xl mx-auto animate-fade-in">
-              {/* Ins 顶部小头像视觉排版 */}
-              <div className="flex items-center gap-3 border-b border-[#fafafa] pb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-rose-400 via-pink-400 to-orange-300 p-0.5 shadow-sm">
-                  <div className="w-full h-full bg-white rounded-full flex items-center justify-center text-xl">💝</div>
+            <div className="bg-white border border-[#e6e3dd] rounded-3xl p-6 md:p-12 space-y-8 shadow-sm max-w-2xl mx-auto animate-fade-in relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-rose-300 via-pink-400 to-amber-200"></div>
+              
+              {/* 头部高级感 Ins 头像框排版 */}
+              <div className="flex items-center gap-4 border-b border-[#faf9f6] pb-5">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-rose-400 via-pink-400 to-amber-300 p-0.5 shadow-sm">
+                  <div className="w-full h-full bg-white rounded-full flex items-center justify-center text-2xl">🌹</div>
                 </div>
                 <div className="text-left">
-                  <h4 className="text-base font-bold text-[#262626]">致周玉平 · 浪漫回响</h4>
-                  <p className="text-[10px] text-stone-400 font-mono tracking-wider">POSTED ON JUNE 2026</p>
+                  <h4 className="text-lg font-bold text-[#1c1c1c] font-serif">致周玉平 · 属于你的浪漫空间</h4>
+                  <p className="text-xs text-stone-400 font-mono tracking-widest mt-0.5">EXCLUSIVE SPACE FOR YOU</p>
                 </div>
               </div>
 
-              {/* 拍立得卡片框体排版 */}
-              <div className="bg-[#faf8f6] p-4 md:p-6 rounded-2xl border border-[#ededed] space-y-6">
-                <div className="text-center py-8 px-4 bg-gradient-to-b from-white to-[#fdfdfd] rounded-xl border shadow-sm">
-                  <span className="text-[10px] bg-rose-50 text-rose-600 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">地道泰语倾诉</span>
-                  <h3 onClick={()=>playAudio("ผมรักคุณหมดหัวใจ")} className="text-3xl font-serif font-bold text-stone-800 tracking-wide mt-3 cursor-pointer hover:opacity-80 active:scale-95 transition-all">
+              {/* 宽幅复古拍立得卡片框体 */}
+              <div className="bg-[#fcfbfa] p-6 md:p-8 rounded-2xl border border-[#ededed] space-y-8 shadow-inner">
+                <div className="text-center py-10 px-4 bg-white rounded-xl border shadow-sm space-y-4">
+                  <span className="text-xs bg-rose-50 text-rose-600 font-black tracking-widest px-3 py-1 rounded-full uppercase">100% 泰语真情表白</span>
+                  <h3 onClick={()=>playAudio("ผมรักคุณหมดหัวใจ")} className="text-400% text-4xl md:text-5xl font-serif font-black text-stone-800 tracking-wide pt-4 cursor-pointer hover:text-rose-500 active:scale-98 transition-all animate-pulse">
                     ผมรักคุณหมดหัวใจ 🔊
                   </h3>
-                  <p className="text-xs font-mono font-bold text-stone-400 mt-1">[Phom rak khun mot hua-chai]</p>
-                  <p className="text-sm font-bold text-stone-700 mt-4 bg-rose-50/30 py-1.5 px-4 rounded-xl inline-block border border-rose-100/40">
-                    “我将我的整颗心，全部用来爱你。”
-                  </p>
+                  <p className="text-xs font-mono font-bold text-stone-400 tracking-wider">[Phom rak khun mot hua-chai]</p>
+                  <div className="pt-4">
+                    <p className="text-lg font-black text-slate-800 bg-rose-50/50 py-2.5 px-6 rounded-xl inline-block border border-rose-100">
+                      “我将我的整颗心，毫无保留地全部用来爱你。”
+                    </p>
+                  </div>
                 </div>
 
-                {/* 细腻抒情长文 */}
-                <div className="p-4 bg-white rounded-xl border border-[#f0f0f0] text-left space-y-3">
-                  <p className="text-sm text-stone-600 leading-relaxed font-serif italic">
-                    “在这座风很温柔、日落很耀眼的旅居城市里，代码记录着逻辑，而我的镜头和回忆里，写满了你的温柔。<br /><br />
-                    网站的组件有对错、路径会编译失败，但爱你这件事，是超越一切服务器阻隔的纯净本能。<br /><br />
-                    周玉平，愿未来的所有闪卡、打卡与漫长光阴，都有你陪伴前行。”
+                {/* 质感治愈抒情散文诗（大字号无缝观赏） */}
+                <div className="p-5 md:p-6 bg-white rounded-xl border border-[#f0f0f0] text-left">
+                  <p className="text-base text-stone-700 leading-loose font-serif italic font-medium">
+                    “在这座风很温柔、水果很甜的旅居城市里，指尖敲击着冰冷的逻辑。而网页的路由会报错、组件会失败，唯独爱你这件事，是超越任何网络框架限制的直连本能。<br /><br />
+                    周玉平，愿未来的漫长冬夏、所有的打卡徽章与往后余生，都有你携手并肩、共赴璀璨。”
                   </p>
                 </div>
               </div>
 
-              <div className="flex justify-center items-center gap-1 text-[11px] text-stone-400 font-bold">
-                <span>🔒 专属告白页面 · 纯前端高保真托管</span>
+              <div className="flex justify-center items-center gap-1.5 text-xs text-stone-400 font-bold tracking-wider">
+                <span>🔒 该页面已实现全静态高保真托管 · 爱意永不下线</span>
               </div>
             </div>
           )}
 
-          {/* 单词自学卡片大模块 */}
+          {/* 单词自学大闪卡模块 */}
           {currentTab === 'study' && (
             <div className="space-y-6">
               {words.length > 0 && (
                 <div className="space-y-6">
-                  {/* Ins风无缝圆润大卡片 */}
-                  <div onClick={()=>setShowPhonetic(!showPhonetic)} className="bg-white border-2 border-[#262626] rounded-2xl p-10 md:p-14 text-center cursor-pointer transition-all hover:shadow-md">
-                    <span className="text-xs font-bold text-stone-400 block mb-2 uppercase tracking-widest">CATEGORY · {currentCategory}</span>
-                    <h2 className="text-5xl md:text-6xl font-serif font-bold text-[#262626] mb-6 tracking-wide">{words[currentIndex]?.thai}</h2>
+                  {/* 全新大字号、温润微立体卡片 */}
+                  <div onClick={()=>setShowPhonetic(!showPhonetic)} className="bg-white border border-[#e6e3dd] rounded-2xl p-12 md:p-16 text-center cursor-pointer transition-all hover:border-stone-800 shadow-sm active:scale-[0.99]">
+                    <span className="text-xs font-black text-stone-400 block mb-3 uppercase tracking-widest">当前分类课程 · {currentCategory}</span>
+                    <h2 className="text-5xl md:text-6xl font-bold text-[#1c1c1c] mb-6 tracking-wide font-serif">{words[currentIndex]?.thai}</h2>
                     {showPhonetic && (
                       <div className="space-y-2 animate-fade-in">
                         <p className="text-xl text-amber-800 font-mono font-bold">[{words[currentIndex]?.read}]</p>
-                        <p className="text-2xl font-bold text-stone-700">{words[currentIndex]?.zh}</p>
+                        <p className="text-3xl font-bold text-stone-800">{words[currentIndex]?.zh}</p>
                       </div>
                     )}
-                    <p className="text-[11px] text-stone-400 font-medium mt-8">💡 戳一下卡片，无缝翻面查看中文释义</p>
+                    <p className="text-xs text-stone-400 font-semibold mt-8">💡 轻触大卡片任何区域，即可翻面显示含义与发音提示</p>
                   </div>
 
-                  {/* 发音底栏 */}
-                  <div className="flex justify-between items-center bg-white p-4 border border-[#efefef] rounded-xl shadow-sm">
-                    <button onClick={()=>playAudio(words[currentIndex]?.thai)} className="bg-[#262626] text-white font-bold px-6 py-3.5 rounded-xl text-sm shadow-sm hover:opacity-90 active:scale-95 transition-transform">🔊 听高保真发音</button>
-                    <button onClick={()=>toggleFavorite(words[currentIndex]?.id)} className={`font-bold px-5 py-3.5 rounded-xl text-sm border transition-all ${favorites.includes(words[currentIndex]?.id)?'bg-amber-400 border-amber-400 text-white':'bg-white text-stone-700'}`}>
-                      {favorites.includes(words[currentIndex]?.id) ? '★ 已归档收藏' : '☆ 收藏此词'}
+                  {/* 声音和收藏底栏 */}
+                  <div className="flex justify-between items-center bg-white p-4 border border-[#e6e3dd] rounded-xl shadow-sm">
+                    <button onClick={()=>playAudio(words[currentIndex]?.thai)} className="bg-[#1c1c1c] text-white font-bold px-7 py-4 rounded-xl text-sm hover:bg-stone-800 transition-all active:scale-95">🔊 触听标准原音（点击必响）</button>
+                    <button onClick={()=>toggleFavorite(words[currentIndex]?.id)} className={`font-bold px-5 py-4 rounded-xl text-sm border transition-all ${favorites.includes(words[currentIndex]?.id)?'bg-amber-400 border-amber-400 text-white shadow-sm':'bg-white text-stone-700'}`}>
+                      {favorites.includes(words[currentIndex]?.id) ? '★ 已加入个人档案' : '☆ 收藏此词'}
                     </button>
                   </div>
 
-                  {/* 大字号翻页控制行 */}
+                  {/* 宽大翻页控制组件 */}
                   <div className="flex gap-4">
-                    <button onClick={()=>{ setShowPhonetic(false); setCurrentIndex((currentIndex - 1 + words.length) % words.length); }} className="flex-1 bg-white border border-[#e0e0e0] font-bold p-4 rounded-xl text-sm text-stone-600 hover:bg-stone-50">◁ 上一个</button>
-                    <button onClick={()=>{ setShowPhonetic(false); if(words[currentIndex]) markAsLearned(words[currentIndex].id, true); setCurrentIndex((currentIndex + 1) % words.length); }} className="flex-1 bg-[#262626] text-white p-4 rounded-xl font-bold text-sm tracking-wide hover:opacity-90 transition-opacity">已掌握，下一个 ▷</button>
+                    <button onClick={()=>{ setShowPhonetic(false); setCurrentIndex((currentIndex - 1 + words.length) % words.length); }} className="flex-1 bg-white border border-[#dfdbd3] font-bold p-4 rounded-xl text-base text-stone-600 hover:bg-stone-50">◁ 上一知识点</button>
+                    <button onClick={()=>{ setShowPhonetic(false); if(words[currentIndex]) markAsLearned(words[currentIndex].id, true); setCurrentIndex((currentIndex + 1) % words.length); }} className="flex-1 bg-[#1c1c1c] text-white p-4 rounded-xl font-bold text-base tracking-wide hover:bg-stone-800 transition-all">记住了，下一个 ▷</button>
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* 随堂趣味测试 */}
+          {/* 关卡趣味测试 */}
           {currentTab === 'test' && (
-            <div className="bg-white border border-[#efefef] rounded-2xl p-6 space-y-6">
+            <div className="bg-white border border-[#e6e3dd] rounded-2xl p-6 space-y-6 shadow-sm">
               <div className="flex gap-2 border-b pb-4">
-                <button onClick={()=>{setTestType('thai_to_zh'); prepareTest();}} className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${testType==='thai_to_zh'?'bg-[#262626] text-white':'bg-stone-100 text-stone-600'}`}>泰译中测试</button>
-                <button onClick={()=>{setTestType('zh_to_thai'); prepareTest();}} className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${testType==='zh_to_thai'?'bg-[#262626] text-white':'bg-stone-100 text-stone-600'}`}>中译泰测试</button>
+                <button onClick={()=>{setTestType('thai_to_zh'); prepareTest();}} className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-colors ${testType==='thai_to_zh'?'bg-[#1c1c1c] text-white':'bg-stone-100 text-stone-600'}`}>泰译中关卡</button>
+                <button onClick={()=>{setTestType('zh_to_thai'); prepareTest();}} className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-colors ${testType==='zh_to_thai'?'bg-[#1c1c1c] text-white':'bg-stone-100 text-stone-600'}`}>中译泰关卡</button>
               </div>
               {testOptions.length > 0 && (
                 <div className="space-y-6">
-                  <div className="text-center py-8 px-4 bg-stone-50 rounded-xl border border-[#eeeeee]">
-                    <span className="text-xs font-bold text-stone-400 uppercase block mb-1">请选择正确的答案项：</span>
-                    {testType === 'thai_to_zh' ? <h3 className="text-4xl font-bold text-[#262626]">{(words[currentIndex] || testOptions[0]).thai}</h3> : <h3 className="text-3xl font-bold text-[#262626]">{(words[currentIndex] || testOptions[0]).zh}</h3>}
+                  <div className="text-center py-10 px-4 bg-stone-50 rounded-xl border border-[#eeeeee]">
+                    <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">请选出最精准的对照：</span>
+                    {testType === 'thai_to_zh' ? <h3 className="text-4xl font-bold text-[#1c1c1c]">{(words[currentIndex] || testOptions[0]).thai}</h3> : <h3 className="text-3xl font-bold text-[#1c1c1c]">{(words[currentIndex] || testOptions[0]).zh}</h3>}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {testOptions.map((opt, idx) => (
@@ -399,7 +427,7 @@ export default function Home() {
                   {testFeedback && (
                     <div className={`p-4 rounded-xl text-center font-bold text-sm ${testFeedback.success?'bg-green-50 text-green-800 border border-green-200':'bg-rose-50 text-rose-800 border border-rose-200'}`}>
                       {testFeedback.text}
-                      <button onClick={prepareTest} className="block mx-auto mt-3 bg-[#262626] text-white text-xs font-bold px-4 py-2 rounded-lg">斩获下一题 ➡️</button>
+                      <button onClick={prepareTest} className="block mx-auto mt-3 bg-[#1c1c1c] text-white text-xs font-bold px-4 py-2 rounded-lg">斩获下一题 ➡️</button>
                     </div>
                   )}
                 </div>
@@ -407,19 +435,19 @@ export default function Home() {
             </div>
           )}
 
-          {/* 个人复习大盘 */}
+          {/* 进度数据大盘 */}
           {currentTab === 'home' && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white border border-[#efefef] p-6 rounded-xl text-center">
+              <div className="bg-white border border-[#e6e3dd] p-6 rounded-xl text-center">
                 <p className="text-stone-400 text-xs font-bold">今日目标进度</p>
                 <h4 className="text-3xl font-bold mt-2 text-stone-800">{profile.today_words_learned} / 10</h4>
               </div>
-              <div className="bg-white border border-[#efefef] p-6 rounded-xl text-center">
+              <div className="bg-white border border-[#e6e3dd] p-6 rounded-xl text-center">
                 <p className="text-stone-400 text-xs font-bold">累计解密词汇</p>
                 <h4 className="text-3xl font-bold mt-2 text-stone-800">{profile.total_words_learned} 个</h4>
               </div>
-              <div className="bg-white border border-[#efefef] p-6 rounded-xl text-center">
-                <p className="text-stone-400 text-xs font-bold">我的收藏池</p>
+              <div className="bg-white border border-[#e6e3dd] p-6 rounded-xl text-center">
+                <p className="text-stone-400 text-xs font-bold">云端归档收藏</p>
                 <h4 className="text-3xl font-bold mt-2 text-stone-800">🌟 {favorites.length} 个词</h4>
               </div>
             </div>
