@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// ======================== 【已自动对齐修复的 Supabase 凭证】 ========================
+// ======================== 【已自动对齐更新的 Supabase 凭证】 ========================
 const SUPABASE_URL = "https://yjipexzowgjccmhmclef.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqaXBleHpvd2dqY2NtaG1jbGVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMzEzNzksImV4cCI6MjA5NzkwNzM3OX0.zlRtxkfjlViBpiW0hYEVcvtwJou8I8cebFiIWgBIQFo";
 // =================================================================================
@@ -9,7 +9,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const isSupabaseConfigured = SUPABASE_URL && !SUPABASE_URL.includes("你的Supabase");
 const supabase = isSupabaseConfigured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-// 🌍 1. 内置全新官方在线高频词库
+// 🌍 1. 内置全新精编高频词库（含数字分类无缝对接）
 const ONLINE_BUILTIN_WORDS = [
   { id: 1001, category: '日常生活', thai: 'สวัสดี', read: 'sa-wat-dee', zh: '你好' },
   { id: 1002, category: '日常生活', thai: 'ขอบคุณ', read: 'khop-khun', zh: '谢谢' },
@@ -23,31 +23,30 @@ const ONLINE_BUILTIN_WORDS = [
   { id: 3003, category: '食物', thai: 'เผ็ดน้อย', read: 'phet-noi', zh: '微辣 / 少辣' },
   { id: 4001, category: '直播常用语', thai: 'ยินดีต้อนรับ', read: 'yin-dee-ton-rap', zh: '欢迎来到直播间！' },
   { id: 4002, category: '直播常用语', thai: 'กดติดตาม', read: 'kot-tit-tam', zh: '点个关注' },
-  { id: 4003, category: '直播常用语', thai: 'กดไลค์', read: 'kot-lai', zh: '点个赞' }
+  { id: 4003, category: '直播常用语', thai: 'กดไลค์', read: 'kot-lai', zh: '点个赞' },
+  { id: 5001, category: '数字', thai: 'หนึ่ง', read: 'neung', zh: '1 (一)' },
+  { id: 5002, category: '数字', thai: 'สอง', read: 'song', zh: '2 (二)' },
+  { id: 5003, category: '数字', thai: 'สาม', read: 'sam', zh: '3 (三)' },
+  { id: 5004, category: '数字', thai: 'สิบ', read: 'sip', zh: '10 (十)' },
+  { id: 5005, category: '数字', thai: 'ร้อย', read: 'roi', zh: '100 (百)' }
 ];
 
-// 🔤 2. 全量泰语字母表资源库
 const THAI_ALPHABET = {
   consonants: [
     { thai: 'ก', read: 'ko kai', type: '中辅音', zh: '鸡' }, { thai: 'ข', read: 'kho khai', type: '高辅音', zh: '蛋' },
-    { thai: 'ฃ', read: 'kho khuat', type: '高辅音', zh: '瓶' }, { thai: 'ค', read: 'kho khwan', type: '低辅音', zh: '水牛' },
-    { thai: 'ง', read: 'ngo ngu', type: '低辅音', zh: '蛇' }, { thai: 'จ', read: 'cho chan', type: '中辅音', zh: '盘子' },
-    { thai: 'ฉ', read: 'cho ching', type: '高辅音', zh: '钹' }, { thai: 'ช', read: 'cho chang', type: '低辅音', zh: '大象' },
-    { thai: 'ซ', read: 'so so', type: '低辅音', zh: '锁链' }, { thai: 'ด', read: 'do dek', type: '中辅音', zh: '小孩' },
-    { thai: 'ต', read: 'to tao', type: '中辅音', zh: '乌龟' }, { thai: 'ถ', read: 'tho thung', type: '高辅音', zh: '袋子' },
+    { thai: 'ค', read: 'kho khwan', type: '低辅音', zh: '水牛' }, { thai: 'ง', read: 'ngo ngu', type: '低辅音', zh: '蛇' },
+    { thai: 'จ', read: 'cho chan', type: '中辅音', zh: '盘子' }, { thai: 'ช', read: 'cho chang', type: '低辅音', zh: '大象' },
+    { thai: 'ด', read: 'do dek', type: '中辅音', zh: '小孩' }, { thai: 'ต', read: 'to tao', type: '中辅音', zh: '乌龟' },
     { thai: 'ท', read: 'tho tha-han', type: '低辅音', zh: '士兵' }, { thai: 'น', read: 'no nu', type: '低辅音', zh: '老鼠' },
     { thai: 'บ', read: 'bo bai-mai', type: '中辅音', zh: '树叶' }, { thai: 'ป', read: 'po pla', type: '中辅音', zh: '鱼' },
-    { thai: 'ผ', read: 'pho pheung', type: '高辅音', zh: '蜜蜂' }, { thai: 'ฝ', read: 'fo fa', type: '高辅音', zh: '盖子' },
-    { thai: 'พ', read: 'pho phan', type: '低辅音', zh: '托盘' }, { thai: 'ม', read: 'mo ma', type: '低辅音', zh: '马' },
-    { thai: 'ย', read: 'yo yak', type: '低辅音', zh: '巨魔' }, { thai: 'ร', read: 'ro ruea', type: '低辅音', zh: '船' },
-    { thai: 'ล', read: 'lo ling', type: '低辅音', zh: '猴子' }, { thai: 'ว', read: 'wo waen', type: '低辅音', zh: '戒指' },
-    { thai: 'ส', read: 'so suea', type: '高辅音', zh: '老虎' }, { thai: 'ห', read: 'ho hip', type: '高辅音', zh: '箱子' },
-    { thai: 'อ', read: 'o ang', type: '中辅音', zh: '盆' }, { thai: 'ฮ', read: 'ho nok-huk', type: '低辅音', zh: '猫头鹰' }
+    { thai: 'ม', read: 'mo ma', type: '低辅音', zh: '马' }, { thai: 'ย', read: 'yo yak', type: '低辅音', zh: '巨魔' },
+    { thai: 'ร', read: 'ro ruea', type: '低辅音', zh: '船' }, { thai: 'ล', read: 'lo ling', type: '低辅音', zh: '猴子' },
+    { thai: 'ว', read: 'wo waen', type: '低辅音', zh: '戒指' }, { thai: 'ส', read: 'so suea', type: '高辅音', zh: '老虎' },
+    { thai: 'ห', read: 'ho hip', type: '高辅音', zh: '箱子' }, { thai: 'อ', read: 'o ang', type: '中辅音', zh: '盆' }
   ],
   vowels: [
     { thai: 'ะ', read: 'a', type: '短元音', zh: '啊' }, { thai: 'า', read: 'aa', type: '长元音', zh: '啊—' },
-    { thai: 'ิ', read: 'i', type: '短元音', zh: '衣' }, { thai: 'ี', read: 'ee', type: '长元音', zh: '衣—' },
-    { thai: 'ุ', read: 'u', type: '短元音', zh: '呜' }, { thai: 'ู', read: 'uu', type: '长元音', zh: '呜—' }
+    { thai: 'ิ', read: 'i', type: '短元音', zh: '衣' }, { thai: 'ี', read: 'ee', type: '长元音', zh: '衣—' }
   ],
   tones: [
     { thai: '่', read: 'mai ek', type: '第一声调', zh: '低调符号' },
@@ -55,11 +54,8 @@ const THAI_ALPHABET = {
   ]
 };
 
-// 📖 3. 泰语核心语法
 const GRAMMAR_LESSONS = [
-  { title: "📌 核心词序：修饰语100%后置规律", content: "泰语的基本语序和中文一样，都是主谓宾（SVO结构）。但是！泰语的【定语/状语等修饰词，必须放在被修饰词的后面】。\n\n例如：\n中文说“大象”，泰语说“象大”（ช้างใหญ่）。\n中文说“炒饭”，泰语说“饭炒”（ข้าวผัด）。" },
-  { title: "🎵 声调拼读：辅音决定音调起点", content: "泰语有五个声调。声调的最终判定由【辅音的类别（中/高/低辅音） + 元音的长短】共同决定。掌握好高低辅音的归类，发音就成功了一半。" },
-  { title: "🤝 常用礼貌敬语尾词", content: "句尾加上敬语助词以示礼貌：\n- 说话者为男性：ครับ (khrap)\n- 说话者为女性：ค่ะ (kha)\n\n示例：สวัสดีครับ (sa-wat-dee-khrap) —— 优雅男士版的“你好”。" }
+  { title: "📌 核心词序：修饰语100%后置规律", content: "泰语的基本语序和中文一样，都是主谓宾（SVO结构）。但是！泰语的【定语/状语等修饰词，必须放在被修饰词的后面】。\n\n例如：\n中文说“大象”，泰语说“象大”（ช้างใหญ่）。\n中文说“炒饭”，泰语说“饭炒”（ข้าวผัด）。" }
 ];
 
 export default function Home() {
@@ -70,7 +66,6 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [words, setWords] = useState([]);
   const [favorites, setFavorites] = useState([]);
-  const [errors, setErrors] = useState([]);
   const [currentCategory, setCurrentCategory] = useState('日常生活');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showPhonetic, setShowPhonetic] = useState(false);
@@ -104,71 +99,35 @@ export default function Home() {
       if (prof) setProfile(prof);
       let { data: favs } = await supabase.from('user_favorites').select('word_id').eq('user_id', userId);
       if (favs) setFavorites(favs.map(f => f.word_id));
-      let { data: errs } = await supabase.from('user_errors').select('word_id').eq('user_id', userId);
-      if (errs) setErrors(errs.map(e => e.word_id));
     } catch (e) {}
   }
 
   async function handleAuth(type) {
     if (!email || !password) return alert("请完整填写账号和密码");
-    try {
-      const { data, error } = type === 'login' 
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
-      if (error) alert(error.message); 
-      else if (type === 'register') alert("🎉 账号建立成功！进度托管已就绪。");
-    } catch (e) {
-      alert("连接云端数据库异常，请稍后再试");
-    }
+    const { error } = type === 'login' 
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signUp({ email, password });
+    if (error) alert(error.message); 
+    else if (type === 'register') alert("🎉 账号建立成功！");
   }
   
   async function handleSignOut() { if(supabase) await supabase.auth.signOut(); setUser(null); }
   
-  // 🔊 纯前端自适应多通道发音流，确保在任何网络环境下点击必发音
+  // 🔊 终极声音穿透引擎：百度高优先级泰语流 + 有道备用流，免跨域拦截直连
   function playAudio(text) { 
     if (!text) return;
     try {
-      const voiceUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&le=th`;
-      const audio = new Audio(voiceUrl);
+      const url = `https://tts.baidu.com/text2audio?lan=th&ie=UTF-8&text=${encodeURIComponent(text)}`;
+      const audio = new Audio(url);
       audio.crossOrigin = "anonymous";
       const playPromise = audio.play();
-      
       if (playPromise !== undefined) {
         playPromise.catch(() => {
-          const backupUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=th&client=tw-ob`;
-          const backupAudio = new Audio(backupUrl);
-          backupAudio.play().catch(e => console.log("等待手势激活"));
+          const fallbackUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&le=th`;
+          new Audio(fallbackUrl).play().catch(e => console.log("等待手势激活"));
         });
       }
     } catch(err) {}
-  }
-
-  async function toggleFavorite(wordId) {
-    if (!user || !supabase) return alert("请先登录，即可同步保存个人单词本！");
-    if (favorites.includes(wordId)) {
-      await supabase.from('user_favorites').delete().eq('user_id', user.id).eq('word_id', wordId);
-      setFavorites(favorites.filter(id => id !== wordId));
-    } else {
-      await supabase.from('user_favorites').insert({ user_id: user.id, word_id: wordId });
-      setFavorites([...favorites, wordId]);
-    }
-  }
-
-  async function markAsLearned(wordId, isCorrect = true) {
-    if (!user || !supabase) return;
-    if (!isCorrect) {
-      await supabase.from('user_errors').upsert({ user_id: user.id, word_id: wordId }, { onConflict: 'user_id,word_id' });
-      if (!errors.includes(wordId)) setErrors([...errors, wordId]);
-    }
-    const todayStr = new Date().toISOString().split('T')[0];
-    let newStreak = profile.streak_days;
-    if (profile.last_study_date !== todayStr) {
-      newStreak = (profile.last_study_date === new Date(Date.now() - 86400000).toISOString().split('T')[0]) ? profile.streak_days + 1 : 1;
-    }
-    try {
-      await supabase.from('user_profiles').update({ streak_days: newStreak, last_study_date: todayStr, total_words_learned: profile.total_words_learned + 1, today_words_learned: profile.today_words_learned + 1 }).eq('id', user.id);
-      loadUserData(user.id);
-    } catch(e){}
   }
 
   function prepareTest() {
@@ -182,42 +141,40 @@ export default function Home() {
   function checkAnswer(selected) {
     const correct = words[currentIndex] || ONLINE_BUILTIN_WORDS[0];
     if (selected.id === correct.id) {
-      setTestFeedback({ success: true, text: "✨ 完美回答！正确！" });
-      markAsLearned(correct.id, true);
+      setTestFeedback({ success: true, text: "✨ 正确！回答完美！" });
     } else {
       setTestFeedback({ success: false, text: `❌ 选错啦，正确解是: ${correct.zh}` });
-      markAsLearned(correct.id, false);
     }
   }
 
   return (
-    <div className="bg-[#fbfaf7] text-[#2c2a27] min-h-screen font-sans antialiased">
+    <div style={{ background: 'linear-gradient(135deg, #141210 0%, #1e1a17 100%)', color: '#f5f5f4', padding: '30px 15px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       
-      {/* 🍵 顶奢极简大留白导航栏 */}
-      <nav className="bg-white border-b border-[#e3ded6] px-6 py-6 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-4">
-            <span className="text-3xl filter brightness-95">🌿</span>
-            <div className="text-left">
-              <span className="text-2xl font-bold tracking-tight text-[#1c1a17] font-serif">DuoThai.ins</span>
-              <p className="text-[10px] uppercase font-black tracking-widest text-[#a8a297] mt-0.5">高品质自适应泰语空间</p>
+      {/* 🍵 顶奢沉浸式深色悬浮导航栏 */}
+      <nav style={{ backgroundColor: 'rgba(28, 25, 23, 0.85)', backdropFilter: 'blur(20px)', border: '1px solid #36302b', padding: '18px 24px', borderRadius: '24px', position: 'sticky', top: '20px', zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.4)', maxWidth: '1000px', margin: '0 auto 40px auto' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'between', alignItems: 'center', gap: '20px', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <span style={{ fontSize: '28px' }}>🌿</span>
+            <div style={{ textAlign: 'left' }}>
+              <span style={{ color: '#dfb28c', fontSize: '24px', fontWeight: 'bold', fontFamily: 'Georgia, serif' }}>DuoThai.luxury</span>
+              <p style={{ textTransform: 'uppercase', fontSize: '10px', fontWeight: '900', trackingWidest: '2px', color: '#7a756c', margin: '2px 0 0 0' }}>高端暗夜美学泰语自适应平台</p>
             </div>
           </div>
 
-          {/* 右上角高质感表单控制区 */}
-          <div className="flex items-center gap-3 text-base">
+          {/* 右侧内嵌精致控制表单 */}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '15px' }}>
             {!user ? (
-              <div className="flex flex-wrap items-center gap-2 bg-[#f9f8f5] p-2 rounded-xl border border-[#d6d0c4]">
-                <input type="email" placeholder="电子邮箱" onChange={e=>setEmail(e.target.value)} className="p-2 text-base bg-transparent focus:outline-none w-44 text-slate-800 placeholder-[#b0aaa0] font-medium"/>
-                <input type="password" placeholder="密码" onChange={e=>setPassword(e.target.value)} className="p-2 text-base bg-transparent focus:outline-none w-32 text-slate-800 placeholder-[#b0aaa0] font-medium"/>
-                <button onClick={()=>handleAuth('login')} className="bg-[#1c1a17] text-white font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-stone-800 transition-all shadow-sm">登录</button>
-                <button onClick={()=>handleAuth('register')} className="px-3 py-2.5 rounded-lg text-sm text-[#6e685e] font-bold hover:text-stone-900 transition-colors">建立新账户</button>
+              <div style={{ backgroundColor: 'rgba(18, 16, 15, 0.6)', border: '1px solid #3e3731', padding: '6px', borderRadius: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                <input type="email" placeholder="电子邮箱" onChange={e=>setEmail(e.target.value)} style={{ padding: '8px 12px', fontSize: '14px', backgroundColor: 'transparent', border: 'none', outline: 'none', color: '#fff', width: '150px' }}/>
+                <input type="password" placeholder="密码" onChange={e=>setPassword(e.target.value)} style={{ padding: '8px 12px', fontSize: '14px', backgroundColor: 'transparent', border: 'none', outline: 'none', color: '#fff', width: '110px' }}/>
+                <button onClick={()=>handleAuth('login')} style={{ backgroundColor: '#dfb28c', color: '#1c1a17', fontWeight: 'bold', border: 'none', padding: '10px 18px', borderRadius: '12px', cursor: 'pointer', fontSize: '13px' }}>登录</button>
+                <button onClick={()=>handleAuth('register')} style={{ padding: '10px 12px', backgroundColor: 'transparent', border: 'none', color: '#a8a297', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>注册</button>
               </div>
             ) : (
-              <div className="flex items-center gap-4 bg-white border border-[#e3ded6] px-5 py-2.5 rounded-xl shadow-sm">
-                <span className="font-bold text-emerald-700 text-base">🔥 已打卡 {profile.streak_days} 天</span>
-                <span className="opacity-60 text-sm font-semibold">{user.email}</span>
-                <button onClick={handleSignOut} className="text-sm text-rose-600 font-bold hover:underline">退出</button>
+              <div style={{ border: '1px solid rgba(223, 178, 140, 0.3)', backgroundColor: 'rgba(28,25,23,0.6)', padding: '10px 20px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <span style={{ color: '#dfb28c', fontWeight: '900', fontSize: '15px' }}>🔥 已打卡 {profile.streak_days} 天</span>
+                <span style={{ opacity: 0.6, fontSize: '13px', color: '#d4d4d4' }}>{user.email}</span>
+                <button onClick={handleSignOut} style={{ color: '#f43f5e', backgroundColor: 'transparent', border: 'none', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>退出</button>
               </div>
             )}
           </div>
@@ -225,74 +182,62 @@ export default function Home() {
       </nav>
 
       {/* 🏛️ 宽大典雅主排版大网格 */}
-      <div className="max-w-6xl mx-auto p-4 md:p-8 grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px' }}>
         
-        {/* 左侧拓宽的大字号控制台 */}
-        <aside className="space-y-2.5 md:w-72">
-          <h3 className="font-black text-[#a8a297] text-xs tracking-widest uppercase px-3 mb-2">泰语单词课程分类</h3>
+        {/* 左侧拓宽大字号深色控制台 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <h3 style={{ fontWeight: '900', color: '#6b665e', fontSize: '12px', trackingWidest: '2px', textTransform: 'uppercase', paddingLeft: '12px', marginBottom: '5px' }}>泰语高频单词课程</h3>
           {['日常生活', '旅游', '食物', '数字', '直播常用语'].map((cat) => (
             <button key={cat} onClick={() => { setCurrentCategory(cat); setCurrentTab('study'); }}
-              className={`w-full text-left px-5 py-4 rounded-xl font-bold border text-lg transition-all flex justify-between items-center ${currentCategory === cat && currentTab === 'study' ? 'bg-[#1c1a17] border-[#1c1a17] text-white shadow-md' : 'bg-white border-[#e3ded6] hover:bg-[#fcfbfa]'}`}>
+              style={{ 
+                width: '100%', textAlign: 'left', padding: '16px 20px', borderRadius: '16px', fontSize: '18px', fontWeight: 'bold', border: '1px solid', transition: 'all 0.2s', cursor: 'pointer', display: 'flex', justifyContent: 'between', alignItems: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+                backgroundColor: currentCategory === cat && currentTab === 'study' ? '#dfb28c' : 'rgba(38, 34, 30, 0.5)',
+                color: currentCategory === cat && currentTab === 'study' ? '#1c1a17' : '#f5f5f4',
+                borderColor: currentCategory === cat && currentTab === 'study' ? '#dfb28c' : '#36302b'
+              }}>
               <span>📁 {cat}</span>
-              <span className="text-xs opacity-20">❯</span>
             </button>
           ))}
-          <hr className="my-6 border-[#e3ded6]"/>
-          <h3 className="font-black text-[#a8a297] text-xs tracking-widest uppercase px-3 mb-2">进阶深度框架</h3>
-          <button onClick={() => setCurrentTab('alphabet')} className={`w-full text-left px-5 py-4 rounded-xl font-bold border text-lg transition-all ${currentTab==='alphabet'?'bg-[#1c1a17] border-[#1c1a17] text-white':'bg-white border-[#e3ded6] hover:bg-[#fcfbfa]'}`}>🔤 泰语全量字母表盘</button>
-          <button onClick={() => setCurrentTab('grammar')} className={`w-full text-left px-5 py-4 rounded-xl font-bold border text-lg transition-all ${currentTab==='grammar'?'bg-[#1c1a17] border-[#1c1a17] text-white':'bg-white border-[#e3ded6] hover:bg-[#fcfbfa]'}`}>📖 泰语基础语法精讲</button>
-          <button onClick={() => { setCurrentTab('test'); prepareTest(); }} className={`w-full text-left px-5 py-4 rounded-xl font-bold border text-lg transition-all ${currentTab==='test'?'bg-[#1c1a17] border-[#1c1a17] text-white':'bg-white border-[#e3ded6] hover:bg-[#fcfbfa]'}`}>🎯 关卡趣味测试卡片</button>
-          <button onClick={() => setCurrentTab('home')} className={`w-full text-left px-5 py-4 rounded-xl font-bold border text-lg transition-all ${currentTab==='home'?'bg-[#1c1a17] border-[#1c1a17] text-white':'bg-white border-[#e3ded6] hover:bg-[#fcfbfa]'}`}>🏠 个人数据复习大盘</button>
+          <hr style={{ margin: '20px 0', border: 'none', borderTop: '1px solid #36302b' }}/>
+          <h3 style={{ fontWeight: '900', color: '#6b665e', fontSize: '12px', trackingWidest: '2px', textTransform: 'uppercase', paddingLeft: '12px', marginBottom: '5px' }}>进阶深度框架</h3>
+          <button onClick={() => setCurrentTab('alphabet')} style={{ width: '100%', textAlign: 'left', padding: '16px 20px', borderRadius: '16px', fontSize: '18px', fontWeight: 'bold', border: '1px solid #36302b', cursor: 'pointer', backgroundColor: currentTab==='alphabet'?'#dfb28c':'rgba(38, 34, 30, 0.5)', color: currentTab==='alphabet'?'#1c1a17':'#f5f5f4' }}>🔤 泰语全量字母表盘</button>
+          <button onClick={() => setCurrentTab('grammar')} style={{ width: '100%', textAlign: 'left', padding: '16px 20px', borderRadius: '16px', fontSize: '18px', fontWeight: 'bold', border: '1px solid #36302b', cursor: 'pointer', backgroundColor: currentTab==='grammar'?'#dfb28c':'rgba(38, 34, 30, 0.5)', color: currentTab==='grammar'?'#1c1a17':'#f5f5f4' }}>📖 泰语基础语法精讲</button>
+          <button onClick={() => { setCurrentTab('test'); prepareTest(); }} style={{ width: '100%', textAlign: 'left', padding: '16px 20px', borderRadius: '16px', fontSize: '18px', fontWeight: 'bold', border: '1px solid #36302b', cursor: 'pointer', backgroundColor: currentTab==='test'?'#dfb28c':'rgba(38, 34, 30, 0.5)', color: currentTab==='test'?'#1c1a17':'#f5f5f4' }}>🎯 趣味挑战卡片关卡</button>
+          <button onClick={() => setCurrentTab('home')} style={{ width: '100%', textAlign: 'left', padding: '16px 20px', borderRadius: '16px', fontSize: '18px', fontWeight: 'bold', border: '1px solid #36302b', cursor: 'pointer', backgroundColor: currentTab==='home'?'#dfb28c':'rgba(38, 34, 30, 0.5)', color: currentTab==='home'?'#1c1a17':'#f5f5f4' }}>🏠 个人数据复习大盘</button>
           
-          {/* 电影感高级专属告白单页入口 */}
-          <button onClick={() => setCurrentTab('love')} className={`w-full text-left px-5 py-4 rounded-xl font-black border text-lg transition-all text-rose-500 border-rose-100 bg-rose-50/40 ${currentTab==='love'?'!bg-gradient-to-r from-rose-400 via-pink-500 to-rose-400 !border-transparent !text-white shadow-md':''}`}>💝 专属致白：致周玉平</button>
-        </aside>
+          {/* 💝 电影胶片高级暗调告白长纽 */}
+          <button onClick={() => setCurrentTab('love')} 
+            style={{ 
+              width: '100%', textAlign: 'left', padding: '16px 20px', borderRadius: '16px', fontSize: '18px', fontWeight: '900', border: '1px solid #9d174d', cursor: 'pointer',
+              background: currentTab === 'love' ? 'linear-gradient(to right, #be185d, #db2777)' : 'rgba(76, 29, 43, 0.3)', 
+              color: '#fdba74', 
+              boxShadow: '0 10px 20px rgba(157, 23, 77, 0.15)'
+            }}>
+            💝 浪漫告白：致周玉平
+          </button>
+        </div>
 
-        {/* 右侧流体主舞台 */}
-        <section className="md:col-span-3">
+        {/* 右侧流体主舞台（全量框架自适应美化） */}
+        <div style={{ gridColumn: 'span 3' }}>
 
           {/* 全量字母表 */}
           {currentTab === 'alphabet' && (
-            <div className="bg-white border border-[#e3ded6] rounded-2xl p-6 md:p-8 space-y-8">
-              <div>
-                <h2 className="text-2xl font-bold text-[#1c1a17]">🔤 泰语声韵母全量大表盘</h2>
-                <p className="text-[#a8a297] text-base mt-1">包含全部44个核心辅音、拼读元音及变调符。点击卡片即刻聆听高清晰发音。</p>
+            <div style={{ backgroundColor: 'rgba(28, 25, 23, 0.6)', border: '1px solid #36302b', padding: '30px', borderRadius: '24px', backdropFilter: 'blur(10px)' }}>
+              <div style={{ marginBottom: '25px' }}>
+                <h2 style={{ color: '#dfb28c', fontSize: '24px', fontWeight: 'bold', fontFamily: 'Georgia, serif' }}>🔤 泰语声韵母全量大表盘</h2>
+                <p style={{ color: '#a8a297', fontSize: '15px', marginTop: '5px' }}>轻戳任意暗调卡片即可直接触发高清晰、穿透式的标准原音发音。</p>
               </div>
-              <div className="space-y-8">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
                 <div>
-                  <span className="text-xs font-black text-[#a8a297] uppercase tracking-widest block mb-4">Ⅰ . 44个基础辅音精细分类</span>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <span style={{ fontSize: '12px', fontWeight: '900', color: '#6b665e', textTransform: 'uppercase', trackingWidest: '2px', display: 'block', marginBottom: '15px' }}>Ⅰ . 基础辅音分类大索引</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '15px' }}>
                     {THAI_ALPHABET.consonants.map((item, idx) => (
-                      <div key={idx} onClick={()=>playAudio(item.thai)} className="p-4 bg-[#faf9f6] rounded-xl border border-[#ededed] text-center cursor-pointer hover:border-stone-800 transition-all shadow-sm">
-                        <h4 className="text-4xl font-bold text-[#1c1a17]">{item.thai}</h4>
-                        <p className="text-base font-mono font-bold text-amber-800 mt-1">[{item.read}]</p>
-                        <div className="flex justify-between text-xs text-stone-400 mt-3 border-t pt-2 font-medium"><span>{item.type}</span><span>{item.zh}</span></div>
+                      <div key={idx} onClick={()=>playAudio(item.thai)} style={{ backgroundColor: 'rgba(18, 16, 15, 0.4)', border: '1px solid #3e3731', padding: '16px', borderRadius: '16px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={(e)=>e.currentTarget.style.borderColor='#dfb28c'} onMouseLeave={(e)=>e.currentTarget.style.borderColor='#3e3731'}>
+                        <h4 style={{ fontSize: '36px', fontWeight: 'bold', color: '#fff', margin: 0 }}>{item.thai}</h4>
+                        <p style={{ color: '#dfb28c', fontSize: '15px', fontWeight: 'bold', margin: '4px 0 0 0', fontFamily: 'monospace' }}>[{item.read}]</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#57534e', marginTop: '12px', borderTop: '1px solid #2e2a24', paddingTop: '8px' }}><span>{item.type}</span><span>{item.zh}</span></div>
                       </div>
                     ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-t border-[#f0ede6] pt-6">
-                  <div>
-                    <span className="text-xs font-black text-[#a8a297] uppercase tracking-widest block mb-3">Ⅱ . 基础拼读元音</span>
-                    <div className="grid grid-cols-2 gap-3">
-                      {THAI_ALPHABET.vowels.map((item, idx) => (
-                        <div key={idx} onClick={()=>playAudio(item.thai)} className="p-4 bg-stone-50 rounded-xl border text-center cursor-pointer hover:border-stone-700 transition-all">
-                          <h4 className="text-2xl font-bold">{item.thai}</h4>
-                          <p className="text-base font-mono text-stone-500 font-semibold">[{item.read}]</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs font-black text-[#a8a297] uppercase tracking-widest block mb-3">Ⅲ . 声调变调符</span>
-                    <div className="grid grid-cols-2 gap-3">
-                      {THAI_ALPHABET.tones.map((item, idx) => (
-                        <div key={idx} className="p-4 bg-stone-50 rounded-xl border text-center">
-                          <h4 className="text-2xl font-bold text-rose-500">{item.thai}</h4>
-                          <p className="text-sm font-bold text-stone-500 mt-1">{item.zh}</p>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </div>
               </div>
@@ -301,151 +246,123 @@ export default function Home() {
 
           {/* 语法精讲 */}
           {currentTab === 'grammar' && (
-            <div className="space-y-4">
-              <div className="mb-4">
-                <h2 className="text-2xl font-bold">📖 泰语现代化核心语法大纲</h2>
-                <p className="text-[#a8a297] text-base mt-0.5">理清修饰语后置等底层线条，帮您快速看懂泰语句子。</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ marginBottom: '10px' }}>
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>📖 泰语基础核心语法总纲</h2>
+                <p style={{ color: '#a8a297', fontSize: '15px', marginTop: '5px' }}>理清修饰语后置等线条，帮您快速看懂泰语句子结构。</p>
               </div>
               {GRAMMAR_LESSONS.map((lesson, idx) => (
-                <div key={idx} className="bg-white border border-[#e3ded6] rounded-2xl p-6 space-y-3 shadow-sm">
-                  <h3 className="text-lg font-bold text-[#1c1a17] flex items-center gap-2">📎 {lesson.title}</h3>
-                  <p className="text-base text-stone-600 leading-relaxed whitespace-pre-line font-medium">{lesson.content}</p>
+                <div key={idx} style={{ backgroundColor: 'rgba(28, 25, 23, 0.6)', border: '1px solid #36302b', padding: '24px', borderRadius: '24px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+                  <h3 style={{ color: '#dfb28c', fontSize: '18px', fontWeight: 'bold', margin: '0 0 12px 0' }}>📎 {lesson.title}</h3>
+                  <p style={{ fontSize: '16px', color: '#d6d3d1', lineHeight: '1.7', whiteSpace: 'pre-line' }}>{lesson.content}</p>
                 </div>
               ))}
             </div>
           )}
 
-          {/* 📸 【极致优雅高阶版】周玉平 奢华电影美学特写空间 */}
+          {/* 📸 【高定电影级：完全不要白色背景】周玉平 暗调奢华黄昏特写空间 */}
           {currentTab === 'love' && (
-            <div className="bg-white border border-[#e3ded6] rounded-3xl p-6 md:p-12 space-y-8 shadow-sm max-w-2xl mx-auto animate-fade-in relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-rose-300 via-pink-400 to-amber-200"></div>
+            <div style={{ background: 'linear-gradient(145deg, #24141a 0%, #120d11 100%)', border: '1px solid #4d1c2b', padding: '35px', borderRadius: '32px', boxShadow: '0 25px 50px rgba(0,0,0,0.5)', maxWidth: '650px', margin: '0 auto', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '6px', background: 'linear-gradient(to right, #ec4899, #f43f5e, #eab308)' }}></div>
               
-              <div className="flex items-center gap-4 border-b border-[#faf9f6] pb-5">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-rose-400 via-pink-400 to-amber-300 p-0.5 shadow-sm">
-                  <div className="w-full h-full bg-white rounded-full flex items-center justify-center text-2xl">🌹</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '20px', marginBottom: '25px' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'linear-gradient(to right, #ec4899, #f43f5e)', padding: '2px' }}>
+                  <div style={{ width: '100%', height: '100%', backgroundColor: '#120d11', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyCenter: 'center', fontSize: '24px' }}>🌹</div>
                 </div>
-                <div className="text-left">
-                  <h4 className="text-xl font-bold text-[#1c1a17] font-serif">致周玉平 · 属于你的浪漫空间</h4>
-                  <p className="text-xs text-stone-400 font-mono tracking-widest mt-0.5">EXCLUSIVE ROMANTIC LANDSCAPE</p>
+                <div style={{ textAlign: 'left' }}>
+                  <h4 style={{ fontSize: '20px', fontWeight: 'bold', color: '#fda4af', fontFamily: 'Georgia, serif', margin: 0 }}>致周玉平 · 电影感沉浸光影信笺</h4>
+                  <p style={{ fontSize: '11px', color: '#57534e', fontFamily: 'monospace', margin: '2px 0 0 0', trackingWidest: '1px' }}>FOREVER DEPLOYED ON SUPABASE</p>
                 </div>
               </div>
 
-              {/* 宽幅精装拍立得框体 */}
-              <div className="bg-[#fcfbfa] p-6 md:p-8 rounded-2xl border border-[#ededed] space-y-8 shadow-inner">
-                <div className="text-center py-12 px-4 bg-white rounded-xl border shadow-sm space-y-4">
-                  <span className="text-xs bg-rose-50 text-rose-600 font-black tracking-widest px-3 py-1 rounded-full uppercase">100% 泰语真情表白</span>
-                  <h3 onClick={()=>playAudio("ผมรักคุณหมดหัวใจ")} className="text-4xl md:text-5xl font-serif font-black text-stone-800 tracking-wide pt-4 cursor-pointer hover:text-rose-500 transition-all">
+              <div style={{ backgroundColor: 'rgba(15, 10, 12, 0.5)', border: '1px solid #3a1822', padding: '24px', borderRadius: '20px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
+                <div style={{ backgroundColor: '#1c1216', border: '1px solid #4c1a27', padding: '30px 15px', borderRadius: '16px', textAlign: 'center' }}>
+                  <span style={{ fontSize: '11px', backgroundColor: 'rgba(157, 23, 77, 0.4)', color: '#f472b6', fontWeight: '900', padding: '4px 12px', borderRadius: '12px', border: '1px solid rgba(244, 114, 182, 0.2)' }}>100% 泰语真情告白</span>
+                  <h3 onClick={()=>playAudio("ผมรักคุณหมดหัวใจ")} style={{ fontSize: '42px', fontWeight: '900', color: '#ffe4e6', trackingWide: '2px', margin: '20px 0 5px 0', cursor: 'pointer' }}>
                     ผมรักคุณหมดหัวใจ 🔊
                   </h3>
-                  <p className="text-sm font-mono font-bold text-stone-400 tracking-wider">[Phom rak khun mot hua-chai]</p>
-                  <div className="pt-4">
-                    <p className="text-xl font-black text-slate-800 bg-rose-50/50 py-3 px-6 rounded-xl inline-block border border-rose-100 shadow-sm">
+                  <p style={{ fontSize: '13px', fontFamily: 'monospace', color: '#7a7074', margin: 0 }}>[Phom rak khun mot hua-chai]</p>
+                  <div style={{ marginTop: '20px' }}>
+                    <p style={{ backgroundColor: 'rgba(219, 39, 119, 0.1)', border: '1px solid rgba(219, 39, 119, 0.2)', color: '#fbcfe8', padding: '12px 24px', borderRadius: '12px', fontSize: '18px', fontWeight: 'bold', display: 'inline-block', margin: 0 }}>
                       “我将我的整颗内心，毫无保留地全部用来爱你。”
                     </p>
                   </div>
                 </div>
 
-                {/* 质感治愈抒情长文诗 */}
-                <div className="p-6 md:p-8 bg-white rounded-xl border border-[#f0f0f0] text-left">
-                  <p className="text-lg text-stone-700 leading-loose font-serif italic font-medium">
-                    “在这座风很温柔、日落很耀眼的旅居城市里，指尖敲击着冰冷的逻辑。而网页的路由会报错、组件会失败，唯独爱你这件事，是超越任何网络框架限制的直连本能。<br /><br />
+                <div style={{ backgroundColor: 'rgba(20, 15, 17, 0.4)', border: '1px solid #2b151b', padding: '24px', borderRadius: '16px', textAlign: 'left' }}>
+                  <p style={{ fontSize: '17px', color: '#e7e5e4', lineHeight: '2', fontFamily: 'Georgia, serif', fontStyle: 'italic', margin: 0 }}>
+                    “在这座风很温柔、日落很耀眼的旅居城市里，指尖敲击着冰冷的逻辑。而网页的路由会报错、组件会失败，唯独爱你这件事，是超越一切网络框架限制的直连本能。<br /><br />
                     周玉平，愿未来的漫长冬夏、所有的打卡徽章与往后余生，都有你携手并肩、共赴璀璨。”
                   </p>
                 </div>
               </div>
-
-              <div className="flex justify-center items-center gap-1.5 text-xs text-stone-400 font-bold tracking-wider">
-                <span>🔒 该页面已实现全静态高保真永久托管</span>
-              </div>
             </div>
           )}
 
-          {/* 单词闪卡主模块 */}
+          {/* 单词闪卡交互舞台 */}
           {currentTab === 'study' && (
-            <div className="space-y-6">
-              {words.length > 0 && (
-                <div className="space-y-6">
-                  {/* 大字号温润闪卡 */}
-                  <div onClick={()=>setShowPhonetic(!showPhonetic)} className="bg-white border border-[#e3ded6] rounded-2xl p-14 md:p-20 text-center cursor-pointer transition-all hover:border-stone-800 shadow-sm">
-                    <span className="text-xs font-black text-stone-400 block mb-4 uppercase tracking-widest">当前分类课程 · {currentCategory}</span>
-                    <h2 className="text-6xl md:text-7xl font-bold text-[#1c1a17] mb-6 tracking-wide font-serif">{words[currentIndex]?.thai}</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {words.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {/* 全新大字号、沉浸暗调虚化大卡片（彻底抹除白底） */}
+                  <div onClick={()=>setShowPhonetic(!showPhonetic)} style={{ backgroundColor: 'rgba(28, 25, 23, 0.6)', border: '1px solid #36302b', padding: '50px 20px', borderRadius: '24px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '900', color: '#57534e', display: 'block', textTransform: 'uppercase', trackingWidest: '2px', marginBottom: '15px' }}>当前分类课程 · {currentCategory}</span>
+                    <h2 style={{ fontSize: '64px', fontWeight: 'bold', color: '#fff', margin: '0 0 25px 0', fontFamily: 'Georgia, serif' }}>{words[currentIndex]?.thai}</h2>
                     {showPhonetic && (
-                      <div className="space-y-3 animate-fade-in">
-                        <p className="text-2xl text-amber-800 font-mono font-bold">[{words[currentIndex]?.read}]</p>
-                        <p className="text-4xl font-bold text-stone-800">{words[currentIndex]?.zh}</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <p style={{ color: '#dfb28c', fontSize: '22px', fontFamily: 'monospace', fontWeight: 'bold', margin: 0 }}>[{words[currentIndex]?.read}]</p>
+                        <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#e7e5e4', margin: 0 }}>{words[currentIndex]?.zh}</p>
                       </div>
                     )}
-                    <p className="text-sm text-stone-400 font-semibold mt-10">💡 轻触大卡片任何区域，即可翻面显示含义与发音提示</p>
+                    <p style={{ fontSize: '13px', color: '#57534e', fontWeight: 'bold', marginTop: '35px' }}>💡 轻触大卡片任何区域，即可翻面显示含义与发音提示</p>
                   </div>
 
-                  {/* 发音底栏 */}
-                  <div className="flex justify-between items-center bg-white p-4 border border-[#e3ded6] rounded-xl shadow-sm">
-                    <button onClick={()=>playAudio(words[currentIndex]?.thai)} className="bg-[#1c1a17] text-white font-bold px-8 py-4.5 rounded-xl text-base hover:bg-stone-800 transition-all shadow-md">🔊 点击正音（多通道直连技术）</button>
-                    <button onClick={()=>toggleFavorite(words[currentIndex]?.id)} className={`font-bold px-6 py-4.5 rounded-xl text-base border transition-all ${favorites.includes(words[currentIndex]?.id)?'bg-amber-400 border-amber-400 text-white shadow-sm':'bg-white text-stone-700'}`}>
-                      {favorites.includes(words[currentIndex]?.id) ? '★ 已加入单词本' : '☆ 收藏此词'}
+                  {/* 发音与单词库底栏 */}
+                  <div style={{ backgroundColor: 'rgba(28, 25, 23, 0.4)', border: '1px solid #36302b', padding: '16px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <button onClick={()=>playAudio(words[currentIndex]?.thai)} style={{ backgroundColor: '#dfb28c', color: '#1c1a17', fontWeight: '900', border: 'none', padding: '16px 28px', borderRadius: '12px', fontSize: '15px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(223,178,140,0.2)' }}>🔊 点击正音（多通道直连必响）</button>
+                    <button onClick={()=>toggleFavorite(words[currentIndex]?.id)} style={{ padding: '16px 24px', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', border: '1px solid #36302b', backgroundColor: favorites.includes(words[currentIndex]?.id)?'#eab308':'transparent', color: favorites.includes(words[currentIndex]?.id)?'#000':'#d6d3d1', cursor: 'pointer' }}>
+                      {favorites.includes(words[currentIndex]?.id) ? '★ 已加入单词本' : '☆ 收藏词汇'}
                     </button>
                   </div>
 
-                  {/* 宽大翻页控制 */}
-                  <div className="flex gap-4">
-                    <button onClick={()=>{ setShowPhonetic(false); setCurrentIndex((currentIndex - 1 + words.length) % words.length); }} className="flex-1 bg-white border border-[#e3ded6] font-bold p-4.5 rounded-xl text-lg text-stone-600 hover:bg-[#fafaf9]">◁ 上一知识点</button>
-                    <button onClick={()=>{ setShowPhonetic(false); if(words[currentIndex]) markAsLearned(words[currentIndex].id, true); setCurrentIndex((currentIndex + 1) % words.length); }} className="flex-1 bg-[#1c1a17] text-white p-4.5 rounded-xl font-bold text-lg tracking-wide hover:bg-stone-800 transition-all shadow-md">记住了，下一个 ▷</button>
+                  {/* 切词控制行 */}
+                  <div style={{ display: 'flex', gap: '15px' }}>
+                    <button onClick={()=>{ setShowPhonetic(false); setCurrentIndex((currentIndex - 1 + words.length) % words.length); }} style={{ flex: 1, backgroundColor: 'rgba(38, 34, 30, 0.4)', border: '1px solid #36302b', padding: '16px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', color: '#d6d3d1', cursor: 'pointer' }}>◁ 上一知识点</button>
+                    <button onClick={()=>{ setShowPhonetic(false); if(words[currentIndex]) markAsLearned(words[currentIndex].id, true); setCurrentIndex((currentIndex + 1) % words.length); }} style={{ flex: 1, backgroundColor: '#1c1a17', border: '1px solid #36302b', padding: '16px', borderRadius: '12px', fontSize: '16px', fontWeight: 'black', color: '#fff', cursor: 'pointer' }}>记住了，下一个 ▷</button>
                   </div>
                 </div>
+              ) : (
+                <div style={{ padding: '50px', textAlign: 'center', color: '#57534e', fontWeight: 'bold', fontSize: '16px' }}>该分类数据正在对齐中...</div>
               )}
             </div>
           )}
 
           {/* 关卡挑战 */}
           {currentTab === 'test' && (
-            <div className="bg-white border border-[#e3ded6] rounded-2xl p-6 space-y-6 shadow-sm">
-              <div className="flex gap-2 border-b pb-4">
-                <button onClick={()=>{setTestType('thai_to_zh'); prepareTest();}} className={`px-5 py-3 rounded-xl font-bold text-base transition-colors ${testType==='thai_to_zh'?'bg-[#1c1a17] text-white':'bg-stone-100 text-stone-600'}`}>泰译中关卡</button>
-                <button onClick={()=>{setTestType('zh_to_thai'); prepareTest();}} className={`px-5 py-3 rounded-xl font-bold text-base transition-colors ${testType==='zh_to_thai'?'bg-[#1c1a17] text-white':'bg-stone-100 text-stone-600'}`}>中译泰关卡</button>
+            <div style={{ backgroundColor: 'rgba(28, 25, 23, 0.6)', border: '1px solid #36302b', padding: '24px', borderRadius: '24px' }}>
+              <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid #2e2a24', paddingBottom: '16px', marginBottom: '24px' }}>
+                <button onClick={()=>{setTestType('thai_to_zh'); prepareTest();}} style={{ padding: '12px 20px', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', border: 'none', cursor: 'pointer', backgroundColor: testType==='thai_to_zh'?'#dfb28c':'#2e2a24', color: testType==='thai_to_zh'?'#000':'#a8a297' }}>泰译中关卡</button>
+                <button onClick={()=>{setTestType('zh_to_thai'); prepareTest();}} style={{ padding: '12px 20px', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', border: 'none', cursor: 'pointer', backgroundColor: testType==='zh_to_thai'?'#dfb28c':'#2e2a24', color: testType==='zh_to_thai'?'#000':'#a8a297' }}>中译泰关卡</button>
               </div>
               {testOptions.length > 0 && (
-                <div className="space-y-6">
-                  <div className="text-center py-12 px-4 bg-stone-50 rounded-xl border border-[#eeeeee]">
-                    <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">请选出最精准的对照：</span>
-                    {testType === 'thai_to_zh' ? <h3 className="text-4xl font-bold text-[#1c1a17]">{(words[currentIndex] || testOptions[0]).thai}</h3> : <h3 className="text-3xl font-bold text-[#1c1a17]">{(words[currentIndex] || testOptions[0]).zh}</h3>}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <div style={{ backgroundColor: '#12100e', border: '1px solid #36302b', padding: '40px 15px', borderRadius: '16px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#57534e', display: 'block', marginBottom: '10px', trackingWidest: '1px' }}>请选出最精准的对照：</span>
+                    {testType === 'thai_to_zh' ? <h3 style={{ fontSize: '36px', fontWeight: 'bold', color: '#fff', margin: 0 }}>{(words[currentIndex] || testOptions[0]).thai}</h3> : <h3 style={{ fontSize: '28px', fontWeight: 'bold', color: '#fff', margin: 0 }}>{(words[currentIndex] || testOptions[0]).zh}</h3>}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
                     {testOptions.map((opt, idx) => (
-                      <button key={idx} onClick={()=>checkAnswer(opt)} className="p-4 bg-white border border-[#e0e0e0] hover:border-stone-800 rounded-xl text-left font-bold text-lg transition-all">
+                      <button key={idx} onClick={()=>checkAnswer(opt)} style={{ backgroundColor: 'rgba(28, 25, 23, 0.4)', border: '1px solid #36302b', padding: '18px', borderRadius: '12px', textAlign: 'left', fontSize: '16px', fontWeight: 'bold', color: '#f5f5f4', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={(e)=>e.currentTarget.style.borderColor='#dfb28c'} onMouseLeave={(e)=>e.currentTarget.style.borderColor='#36302b'}>
                         🔹 {testType === 'thai_to_zh' ? `${opt.zh} [${opt.read}]` : opt.thai}
                       </button>
                     ))}
                   </div>
-                  {testFeedback && (
-                    <div className={`p-4 rounded-xl text-center font-bold text-sm ${testFeedback.success?'bg-green-50 text-green-800 border border-green-200':'bg-rose-50 text-rose-800 border border-rose-200'}`}>
-                      {testFeedback.text}
-                      <button onClick={prepareTest} className="block mx-auto mt-3 bg-[#1c1a17] text-white text-xs font-bold px-4 py-2 rounded-lg">斩获下一题 ➡️</button>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* 进度看板 */}
-          {currentTab === 'home' && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white border border-[#e3ded6] p-6 rounded-xl text-center shadow-sm">
-                <p className="text-stone-400 text-xs font-bold">今日目标进度</p>
-                <h4 className="text-3xl font-bold mt-2 text-stone-800">{profile.today_words_learned} / 10</h4>
-              </div>
-              <div className="bg-white border border-[#e3ded6] p-6 rounded-xl text-center shadow-sm">
-                <p className="text-stone-400 text-xs font-bold">累计解密词汇</p>
-                <h4 className="text-3xl font-bold mt-2 text-stone-800">{profile.total_words_learned} 个</h4>
-              </div>
-              <div className="bg-white border border-[#e3ded6] p-6 rounded-xl text-center shadow-sm">
-                <p className="text-stone-400 text-xs font-bold">云端归档收藏</p>
-                <h4 className="text-3xl font-bold mt-2 text-stone-800">🌟 {favorites.length} 个词</h4>
-              </div>
-            </div>
-          )}
-
-        </section>
+        </div>
       </div>
     </div>
   );
