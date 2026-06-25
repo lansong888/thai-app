@@ -1,13 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// ======================== 【已自动锁死并对齐的有效凭证】 ========================
+// ======================== 【Supabase 凭证】 ========================
 const SUPABASE_URL = "https://yjipexzowgjccmhmclef.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqaXBleHpvd2dqY2NtaG1jbGVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMzEzNzksImV4cCI6MjA5NzkwNzM3OX0.zlRtxkfjlViBpiW0hYEVcvtwJou8I8cebFiIWgBIQFo";
 // =================================================================================
 
-const isSupabaseConfigured = SUPABASE_URL && !SUPABASE_URL.includes("你的Supabase");
-const supabase = isSupabaseConfigured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const ONLINE_BUILTIN_WORDS = [
   { id: 1001, category: '日常生活', thai: 'สวัสดี', read: 'sa-wat-dee', zh: '你好' },
@@ -45,14 +44,11 @@ const THAI_ALPHABET = {
   ]
 };
 
-const GRAMMAR_LESSONS = [
-  { title: "📌 核心词序：修饰语100%后置规律", content: "泰语的基本语序和中文一样，都是主谓宾（SVO结构）。但是！泰语的【定语/状语等修饰词，必须放在被修饰词的后面】。\n\n例如：\n中文说“大象”，泰语说“象大”（ช้างใหญ่）。\n中文说“炒饭”，泰语说“饭炒”（ข้าวผัด）。" }
-];
-
 export default function Home() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState({ streak_days: 0, total_words_learned: 0, today_words_learned: 0 });
   const [currentTab, setCurrentTab] = useState('study'); 
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [words, setWords] = useState([]);
@@ -61,20 +57,18 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showPhonetic, setShowPhonetic] = useState(false);
   const [musicPlaying, setMusicPlaying] = useState(false);
-  const [bgMusic, setBgMusic] = useState(null);
-  const [testOptions, setTestOptions] = useState([]);
-  const [testFeedback, setTestFeedback] = useState(null);
+
+  const audioPlayerRef = useRef(null);
+  const musicPlayerRef = useRef(null);
 
   useEffect(() => {
-    if (supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) { setUser(session.user); loadUserData(session.user.id); }
-      });
-      supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user ?? null);
-        if (session) loadUserData(session.user.id);
-      });
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) { setUser(session.user); loadUserData(session.user.id); }
+    });
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session) { loadUserData(session.user.id); setShowAuthModal(false); }
+    });
     loadBuiltinWords();
   }, [currentCategory]);
 
@@ -85,7 +79,6 @@ export default function Home() {
   }
 
   async function loadUserData(userId) {
-    if (!supabase) return;
     try {
       let { data: prof } = await supabase.from('user_profiles').select('*').eq('id', userId).single();
       if (prof) setProfile(prof);
@@ -96,57 +89,68 @@ export default function Home() {
 
   async function handleAuth(type) {
     if (!email || !password) return alert("请完整填写账号和密码");
-    const { data, error } = type === 'login' 
+    const { error } = type === 'login' 
       ? await supabase.auth.signInWithPassword({ email, password })
       : await supabase.auth.signUp({ email, password });
     if (error) alert(error.message); 
-    else if (type === 'register') alert("🎉 账号注册成功！");
+    else if (type === 'register') alert("🎉 账号注册成功并已登录！");
   }
   
-  async function handleSignOut() { if(supabase) await supabase.auth.signOut(); setUser(null); setFavorites([]); }
+  async function handleSignOut() { await supabase.auth.signOut(); setUser(null); setFavorites([]); }
   
-  // 🔊 【终极黑科技发音引擎】：完全脱离网络接口，调用系统自带硬件语音合成，无视任何拉黑与跨域，点按100%必响！
   function playAudio(text, isAlphabet = false, alphaRead = "") { 
     if (!text) return;
-    try {
-      window.speechSynthesis.cancel(); // 瞬间切断正在播放的残余声音，防止堆叠卡死
-      
-      // 如果是辅音字母卡片，引擎直接拼读它的罗马发音名字（如 ko kai），如果是普通单词则直接读泰语
-      const queryText = (isAlphabet && alphaRead) ? alphaRead : text;
-      const utterance = new SpeechSynthesisUtterance(queryText);
-      
-      // 强制指定为泰语发音或通用高兼容国际语调
-      utterance.lang = isAlphabet ? 'en-US' : 'th-TH'; 
-      utterance.rate = 0.9; // 略微放慢语速，听得更清晰
-      
-      window.speechSynthesis.speak(utterance);
-    } catch(err) {
-      console.log("硬件声音引擎初始化");
+    const queryText = (isAlphabet && alphaRead) ? alphaRead : text;
+    
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new Audio();
+      audioPlayerRef.current.crossOrigin = "anonymous";
     }
+
+    const channels = [
+      `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(queryText)}&le=th`,
+      `https://tts.baidu.com/text2audio?lan=th&ie=UTF-8&text=${encodeURIComponent(queryText)}`
+    ];
+
+    let currentChannel = 0;
+    function runChannel() {
+      if (currentChannel >= channels.length) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(queryText);
+          utterance.lang = isAlphabet ? 'en-US' : 'th-TH';
+          window.speechSynthesis.speak(utterance);
+        } catch(e){}
+        return;
+      }
+      audioPlayerRef.current.src = channels[currentChannel];
+      audioPlayerRef.current.play().catch(() => {
+        currentChannel++;
+        runChannel();
+      });
+    }
+    runChannel();
   }
 
-  // 🎵 表白页浪漫伴奏中心（防跨域干扰稳定流）
   function toggleLoveMusic() {
+    if (!musicPlayerRef.current) {
+      musicPlayerRef.current = new Audio("https://music.163.com/song/media/outer/url?id=5255987.mp3");
+      musicPlayerRef.current.loop = true;
+      musicPlayerRef.current.volume = 0.4;
+    }
+
     if (musicPlaying) {
-      if (bgMusic) { bgMusic.pause(); }
+      musicPlayerRef.current.pause();
       setMusicPlaying(false);
     } else {
-      let audioObj = bgMusic;
-      if (!audioObj) {
-        audioObj = new Audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3");
-        audioObj.loop = true;
-        audioObj.volume = 0.3;
-        setBgMusic(audioObj);
-      }
-      audioObj.play().catch(e => console.log("伴奏加载中"));
+      musicPlayerRef.current.play().catch(e => console.log("等待激活"));
       setMusicPlaying(true);
     }
   }
 
-  // 🌟 锁死收藏逻辑：点击瞬间前端闪亮更新，完全不受 Supabase 后台延迟的任何干扰
   async function toggleFavorite(wordId) {
     if (!wordId) return;
-    if (!user || !supabase) return alert("请先在右上方登录账户，即可启用云端同步收藏夹！");
+    if (!user) return alert("请先点击右上方登录，即可启用云端同步收藏夹！");
     
     const isFav = favorites.includes(wordId);
     if (isFav) {
@@ -161,203 +165,141 @@ export default function Home() {
   function handleNextWord() {
     setShowPhonetic(false);
     if (words.length === 0) return;
-    const nextIdx = (currentIndex + 1) % words.length;
-    setCurrentIndex(nextIdx);
+    setCurrentIndex((currentIndex + 1) % words.length);
   }
 
   return (
-    <div style={{ background: 'linear-gradient(135deg, #0a0a0c 0%, #121115 100%)', color: '#e4e4e7', padding: '35px 20px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+    <div style={{ background: 'linear-gradient(135deg, #09090b 0%, #141417 100%)', color: '#e4e4e7', padding: '30px 15px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
       
-      {/* 🔮 顶奢暗夜悬浮导航栏 */}
-      <nav style={{ backgroundColor: 'rgba(18, 18, 22, 0.85)', backdropFilter: 'blur(30px)', border: '1px solid rgba(255,255,255,0.06)', padding: '20px 26px', borderRadius: '24px', position: 'sticky', top: '20px', zIndex: 100, boxShadow: '0 30px 60px rgba(0,0,0,0.6)', maxWidth: '1000px', margin: '0 auto 40px auto' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <span style={{ fontSize: '30px' }}>🌿</span>
-            <div style={{ textAlign: 'left' }}>
-              <span style={{ color: '#e9c46a', fontSize: '26px', fontWeight: 'bold', fontFamily: 'Georgia, serif' }}>DuoThai.ins</span>
-              <p style={{ textTransform: 'uppercase', fontSize: '9px', fontWeight: '900', letterSpacing: '2px', color: '#61616a', margin: '3px 0 0 0' }}>暗夜极光流砂自适应美学空间</p>
-            </div>
+      {/* 🔮 导航栏 */}
+      <nav style={{ backgroundColor: 'rgba(15, 15, 18, 0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.06)', padding: '14px 24px', borderRadius: '20px', position: 'sticky', top: '20px', zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.5)', maxWidth: '1000px', margin: '0 auto 40px auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '24px' }}>🌿</span>
+            <span style={{ color: '#dfb28c', fontSize: '22px', fontWeight: 'bold', fontFamily: 'Georgia, serif' }}>DuoThai.ins</span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            {/* 🔑 账户登录框自适应完美隐藏机制 */}
+          <div>
             {!user ? (
-              <div style={{ backgroundColor: 'rgba(10, 10, 12, 0.7)', border: '1px solid rgba(255,255,255,0.08)', padding: '6px', borderRadius: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
-                <input type="email" placeholder="电子邮箱" onChange={e=>setEmail(e.target.value)} style={{ padding: '10px 14px', fontSize: '14px', backgroundColor: 'transparent', border: 'none', outline: 'none', color: '#fff', width: '160px' }}/>
-                <input type="password" placeholder="密码" onChange={e=>setPassword(e.target.value)} style={{ padding: '10px 14px', fontSize: '14px', backgroundColor: 'transparent', border: 'none', outline: 'none', color: '#fff', width: '120px' }}/>
-                <button onClick={()=>handleAuth('login')} style={{ backgroundColor: '#e9c46a', color: '#0a0a0c', fontWeight: '900', border: 'none', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontSize: '13px' }}>登录</button>
-                <button onClick={()=>handleAuth('register')} style={{ padding: '10px 12px', backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>注册</button>
-              </div>
+              <button onClick={() => setShowAuthModal(true)} style={{ backgroundColor: '#dfb28c', color: '#09090b', fontWeight: '900', border: 'none', padding: '10px 22px', borderRadius: '12px', cursor: 'pointer', fontSize: '14px' }}>🔑 快捷登录 / 注册账户</button>
             ) : (
-              <div style={{ border: '1px solid rgba(233, 196, 106, 0.25)', backgroundColor: 'rgba(18,18,22,0.6)', padding: '10px 20px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <span style={{ color: '#e9c46a', fontWeight: '900', fontSize: '15px' }}>🔥 账号已登录</span>
-                <span style={{ opacity: 0.6, fontSize: '13px', color: '#a1a1aa' }}>{user.email}</span>
-                <button onClick={handleSignOut} style={{ color: '#f43f5e', backgroundColor: 'transparent', border: 'none', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>登出账户</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', fontSize: '14px' }}>
+                <span style={{ color: '#dfb28c', fontWeight: 'bold' }}>🔥 连击打卡中 │ {user.email}</span>
+                <button onClick={handleSignOut} style={{ color: '#ef4444', backgroundColor: 'transparent', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>退出</button>
               </div>
             )}
           </div>
         </div>
       </nav>
 
-      {/* 主展示网格 */}
+      {/* 🔑 弹窗 */}
+      {showAuthModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(15px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.08)', padding: '35px', borderRadius: '24px', width: '360px', textAlign: 'center', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ margin: '0 0 20px 0', color: '#dfb28c', fontSize: '20px', fontWeight: 'bold' }}>同步个人复习进度</h3>
+            <input type="email" placeholder="输入您的电子邮箱" onChange={e=>setEmail(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: '#09090b', border: '1px solid #27272a', color: '#fff', marginBottom: '12px', outline: 'none' }}/>
+            <input type="password" placeholder="设置您的账户密码" onChange={e=>setPassword(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: '#09090b', border: '1px solid #27272a', color: '#fff', marginBottom: '20px', outline: 'none' }}/>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={()=>handleAuth('login')} style={{ flex: 1, backgroundColor: '#dfb28c', color: '#09090b', fontWeight: 'bold', border: 'none', padding: '12px', borderRadius: '12px', cursor: 'pointer' }}>直接登录</button>
+              <button onClick={()=>handleAuth('register')} style={{ flex: 1, backgroundColor: '#27272a', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', cursor: 'pointer' }}>注册账户</button>
+            </div>
+            <p onClick={() => setShowAuthModal(false)} style={{ color: '#71717a', fontSize: '13px', marginTop: '20px', cursor: 'pointer', textDecoration: 'underline' }}>暂不登录，返回浏览</p>
+          </div>
+        </div>
+      )}
+
+      {/* 🏛️ 网格 */}
       <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '35px' }}>
         
-        {/* 左侧控制台 */}
+        {/* 左侧 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h3 style={{ fontWeight: '900', color: '#4b4b54', fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase', paddingLeft: '12px', marginBottom: '5px' }}>泰语核心课程分类</h3>
           {['日常生活', '旅游', '食物', '数字', '直播常用语'].map((cat) => (
             <button key={cat} onClick={() => { setCurrentCategory(cat); setCurrentTab('study'); }}
               style={{ 
-                width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '18px', fontSize: '18px', fontWeight: 'bold', border: '1px solid', transition: 'all 0.2s', cursor: 'pointer',
-                backgroundColor: currentCategory === cat && currentTab === 'study' ? '#e9c46a' : 'rgba(25, 25, 28, 0.6)',
-                color: currentCategory === cat && currentTab === 'study' ? '#0a0a0c' : '#f4f4f5',
-                borderColor: currentCategory === cat && currentTab === 'study' ? '#e9c46a' : 'rgba(255,255,255,0.05)'
+                width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '16px', fontSize: '18px', fontWeight: 'bold', border: '1px solid', transition: 'all 0.2s', cursor: 'pointer',
+                backgroundColor: currentCategory === cat && currentTab === 'study' ? '#dfb28c' : 'rgba(20, 20, 23, 0.6)',
+                color: currentCategory === cat && currentTab === 'study' ? '#09090b' : '#e4e4e7',
+                borderColor: currentCategory === cat && currentTab === 'study' ? '#dfb28c' : 'rgba(255,255,255,0.05)'
               }}>
-              <span>📁 {cat}</span>
+              📁 {cat}
             </button>
           ))}
-          <hr style={{ margin: '20px 0', border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)' }}/>
-          <h3 style={{ fontWeight: '900', color: '#4b4b54', fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase', paddingLeft: '12px', marginBottom: '5px' }}>进阶深度框架</h3>
-          <button onClick={() => setCurrentTab('alphabet')} style={{ width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '18px', fontSize: '18px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: currentTab==='alphabet'?'#e9c46a':'rgba(25, 25, 28, 0.6)', color: currentTab==='alphabet'?'#0a0a0c':'#f4f4f5' }}>🔤 泰语全量字母表盘</button>
-          <button onClick={() => setCurrentTab('grammar')} style={{ width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '18px', fontSize: '18px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: currentTab==='grammar'?'#e9c46a':'rgba(25, 25, 28, 0.6)', color: currentTab==='grammar'?'#0a0a0c':'#f4f4f5' }}>📖 泰语基础语法精讲</button>
-          <button onClick={() => setCurrentTab('home')} style={{ width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '18px', fontSize: '18px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: currentTab==='home'?'#e9c46a':'rgba(25, 25, 28, 0.6)', color: currentTab==='home'?'#0a0a0c':'#f4f4f5' }}>🏠 个人数据复习大盘</button>
+          <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)' }}/>
+          <button onClick={() => setCurrentTab('alphabet')} style={{ width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '16px', fontSize: '18px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: currentTab==='alphabet'?'#dfb28c':'rgba(20, 20, 23, 0.6)', color: currentTab==='alphabet'?'#09090b':'#e4e4e7' }}>🔤 泰语全量字母表盘</button>
           
           <button onClick={() => setCurrentTab('love')} 
             style={{ 
-              width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '18px', fontSize: '18px', fontWeight: '900', border: '1px solid #b91c1c', cursor: 'pointer',
-              background: currentTab === 'love' ? 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)' : 'rgba(159, 18, 57, 0.15)', 
-              color: '#ffe4e6'
+              width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '16px', fontSize: '18px', fontWeight: '900', border: '1px solid #991b1b', cursor: 'pointer',
+              background: currentTab === 'love' ? 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)' : 'rgba(153, 27, 27, 0.15)', color: '#fee2e2'
             }}>
             💝 浪漫告白：致周玉平
           </button>
         </div>
 
-        {/* 右侧舞台 */}
+        {/* 右侧 */}
         <div style={{ gridColumn: 'span 3' }}>
 
-          {/* 全量字母表 */}
+          {/* 字母表 */}
           {currentTab === 'alphabet' && (
-            <div style={{ backgroundColor: 'rgba(20, 20, 25, 0.7)', border: '1px solid rgba(255,255,255,0.05)', padding: '35px', borderRadius: '28px', backdropFilter: 'blur(20px)' }}>
-              <div style={{ marginBottom: '30px' }}>
-                <h2 style={{ color: '#e9c46a', fontSize: '26px', fontWeight: 'bold', fontFamily: 'Georgia, serif' }}>🔤 泰语声韵母全量大表盘</h2>
-                <p style={{ color: '#a1a1aa', fontSize: '15px', marginTop: '6px' }}>轻戳任意卡片即可直接触发最高频的系统硬件级真人名字发音。</p>
-              </div>
-              <div>
-                <span style={{ fontSize: '12px', fontWeight: '900', color: '#52525b', textTransform: 'uppercase', letterSpacing: '2px', display: 'block', marginBottom: '20px' }}>Ⅰ . 基础辅音分类大索引</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '18px' }}>
-                  {THAI_ALPHABET.consonants.map((item, idx) => (
-                    <div key={idx} onClick={()=>playAudio(item.thai, true, item.read)} style={{ backgroundColor: 'rgba(10, 10, 12, 0.5)', border: '1px solid rgba(255,255,255,0.04)', padding: '20px 16px', borderRadius: '18px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
-                      <h4 style={{ fontSize: '40px', fontWeight: 'bold', color: '#fff', margin: 0 }}>{item.thai}</h4>
-                      <p style={{ color: '#e9c46a', fontSize: '15px', fontWeight: 'bold', margin: '6px 0 0 0', fontFamily: 'monospace' }}>[{item.read}]</p>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#4b4b54', marginTop: '14px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '10px' }}><span>{item.type}</span><span>{item.zh}</span></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 语法精讲 */}
-          {currentTab === 'grammar' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '26px', fontWeight: 'bold' }}>📖 泰语基础核心语法总纲</h2>
-              {GRAMMAR_LESSONS.map((lesson, idx) => (
-                <div key={idx} style={{ backgroundColor: 'rgba(20, 20, 25, 0.7)', border: '1px solid rgba(255,255,255,0.05)', padding: '28px', borderRadius: '24px' }}>
-                  <h3 style={{ color: '#e9c46a', fontSize: '20px', fontWeight: 'bold', margin: '0 0 14px 0' }}>📎 {lesson.title}</h3>
-                  <p style={{ fontSize: '16px', color: '#d4d4d8', lineHeight: '1.8', whiteSpace: 'pre-line' }}>{lesson.content}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* 📸 【极致高定版】周玉平 暗调黄昏光影告白特写空间（含硬件纯正发音 + 钢琴专属背景乐） */}
-          {currentTab === 'love' && (
-            <div style={{ background: 'linear-gradient(145deg, #1e1116 0%, #0d0a0d 100%)', border: '1px solid #881337', padding: '40px', borderRadius: '32px', boxShadow: '0 30px 60px rgba(0,0,0,0.6)', maxWidth: '650px', margin: '0 auto', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '6px', background: 'linear-gradient(to right, #f43f5e, #ec4899, #eab308)' }}></div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '18px', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '22px', marginBottom: '30px' }}>
-                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(to right, #f43f5e, #ec4899)', padding: '2px' }}>
-                  <div style={{ width: '100%', height: '100%', backgroundColor: '#0d0a0d', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px' }}>🌹</div>
-                </div>
-                <div style={{ textAlign: 'left' }}>
-                  <h4 style={{ fontSize: '22px', fontWeight: 'bold', color: '#fecdd3', fontFamily: 'Georgia, serif', margin: 0 }}>致周玉平 · 属于你的沉浸式极光信笺</h4>
-                  <p style={{ fontSize: '11px', color: '#52525b', fontFamily: 'monospace', margin: '3px 0 0 0' }}>FOREVER DEPLOYED ON SUPABASE</p>
-                </div>
-              </div>
-
-              {/* 🎵 古典钢琴配乐开关 */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '25px' }}>
-                <button onClick={toggleLoveMusic} style={{ backgroundColor: musicPlaying ? '#f43f5e' : '#27272a', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '16px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>
-                  {musicPlaying ? "🎵 暂停专属浪漫背景音乐" : "🎵 开启浪漫致白背景伴奏"}
-                </button>
-              </div>
-
-              <div style={{ backgroundColor: 'rgba(10, 8, 10, 0.6)', border: '1px solid #4c0519', padding: '28px', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                <div style={{ backgroundColor: '#170c10', border: '1px solid #701a2f', padding: '35px 20px', borderRadius: '20px', textAlign: 'center' }}>
-                  <span style={{ fontSize: '11px', backgroundColor: 'rgba(159, 18, 57, 0.5)', color: '#fb7185', fontWeight: '900', padding: '5px 14px', borderRadius: '12px', border: '1px solid rgba(251, 113, 133, 0.2)' }}>100% 硬件合成真情告白</span>
-                  <h3 onClick={()=>playAudio("ผมรักคุณหมดหัวใจ")} style={{ fontSize: '46px', fontWeight: '900', color: '#ffe4e6', margin: '24px 0 6px 0', cursor: 'pointer' }}>
-                    ผมรักคุณหมดหัวใจ 🔊
-                  </h3>
-                  <p style={{ fontSize: '14px', fontFamily: 'monospace', color: '#887c80', margin: 0 }}>[Phom rak khun mot hua-chai]</p>
-                  <div style={{ marginTop: '25px' }}>
-                    <p style={{ backgroundColor: 'rgba(225, 29, 72, 0.08)', border: '1px solid rgba(225, 29, 72, 0.18)', color: '#fda4af', padding: '14px 28px', borderRadius: '14px', fontSize: '19px', fontWeight: 'bold', display: 'inline-block', margin: 0 }}>
-                      “我将我的整颗内心，毫无保留地全部用来爱你。”
-                    </p>
+            <div style={{ backgroundColor: 'rgba(20, 20, 23, 0.6)', border: '1px solid rgba(255,255,255,0.05)', padding: '35px', borderRadius: '24px' }}>
+              <h2 style={{ color: '#dfb28c', fontSize: '24px', fontWeight: 'bold', margin: '0 0 25px 0', fontFamily: 'Georgia, serif' }}>🔤 泰语声韵母全量大表盘</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '15px' }}>
+                {THAI_ALPHABET.consonants.map((item, idx) => (
+                  <div key={idx} onClick={()=>playAudio(item.thai, true, item.read)} style={{ backgroundColor: '#09090b', border: '1px solid rgba(255,255,255,0.04)', padding: '18px 14px', borderRadius: '16px', textAlign: 'center', cursor: 'pointer' }}>
+                    <h4 style={{ fontSize: '38px', fontWeight: 'bold', color: '#fff', margin: 0 }}>{item.thai}</h4>
+                    <p style={{ color: '#dfb28c', fontSize: '14px', fontWeight: 'bold', margin: '5px 0 0 0' }}>[{item.read}]</p>
                   </div>
-                </div>
-
-                <div style={{ backgroundColor: 'rgba(12, 10, 11, 0.4)', border: '1px solid #310413', padding: '26px', borderRadius: '20px', textAlign: 'left' }}>
-                  <p style={{ fontSize: '17px', color: '#e4e4e7', lineHeight: '2.1', fontFamily: 'Georgia, serif', fontStyle: 'italic', margin: 0 }}>
-                    “在这座风很温柔、日落很耀眼的旅居城市里，指尖敲击着冰冷的逻辑。而网页的路由会报错、组件会失败，唯独爱你这件事，是超越一切网络框架限制的直连本能。<br /><br />
-                    周玉平，愿未来的漫长冬夏、所有的打卡徽章与往后余生，都有你携手并肩、共赴璀璨。”
-                  </p>
-                </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* 单词闪卡 */}
+          {/* 表白页 */}
+          {currentTab === 'love' && (
+            <div style={{ background: 'linear-gradient(145deg, #180c10 0%, #09090b 100%)', border: '1px solid #7f1d1d', padding: '40px', borderRadius: '32px', textAlign: 'center' }}>
+              <h4 style={{ fontSize: '22px', fontWeight: 'bold', color: '#fecdd3', fontFamily: 'Georgia, serif', margin: '0 0 20px 0' }}>致周玉平 · 电影感星空信笺</h4>
+              
+              <button onClick={toggleLoveMusic} style={{ backgroundColor: musicPlaying ? '#dc2626' : '#27272a', color: '#fff', border: 'none', padding: '12px 26px', borderRadius: '16px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '30px' }}>
+                {musicPlaying ? "⏸ 暂停播放 许嵩-《你若成风》" : "🎵 开启专属配乐：许嵩-《你若成风》"}
+              </button>
+
+              <div style={{ backgroundColor: '#09090b', border: '1px solid #450a0a', padding: '30px', borderRadius: '20px', cursor: 'pointer' }} onClick={()=>playAudio("ผมรักคุณหมดหัวใจ")}>
+                <h3 style={{ fontSize: '46px', fontWeight: '900', color: '#ffe4e6', margin: '0 0 10px 0' }}>ผมรักคุณหมดหัวใจ 🔊</h3>
+                <p style={{ color: '#dfb28c', fontSize: '16px', margin: 0 }}>[Phom rak khun mot hua-chai]</p>
+                <p style={{ color: '#fda4af', fontSize: '20px', fontWeight: 'bold', marginTop: '20px' }}>“我将我的整颗内心，毫无保留地全部用来爱你。”</p>
+              </div>
+            </div>
+          )}
+
+          {/* 闪卡 */}
           {currentTab === 'study' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {words.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}>
-                  <div onClick={()=>setShowPhonetic(!showPhonetic)} style={{ backgroundColor: 'rgba(20, 20, 25, 0.6)', border: '1px solid rgba(255,255,255,0.05)', padding: '55px 20px', borderRadius: '24px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 25px 50px rgba(0,0,0,0.4)' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '900', color: '#4b4b54', display: 'block', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '18px' }}>当前分类课程 · {currentCategory}</span>
-                    <h2 style={{ fontSize: '70px', fontWeight: 'bold', color: '#fff', margin: '0 0 28px 0', fontFamily: 'Georgia, serif' }}>{words[currentIndex]?.thai}</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <div onClick={()=>setShowPhonetic(!showPhonetic)} style={{ backgroundColor: 'rgba(20, 20, 23, 0.6)', border: '1px solid rgba(255,255,255,0.05)', padding: '55px 20px', borderRadius: '24px', textAlign: 'center', cursor: 'pointer' }}>
+                    <span style={{ fontSize: '12px', color: '#71717a', display: 'block', letterSpacing: '2px', marginBottom: '15px' }}>{currentCategory}</span>
+                    <h2 style={{ fontSize: '72px', fontWeight: 'bold', color: '#fff', margin: '0 0 25px 0' }}>{words[currentIndex]?.thai}</h2>
                     {showPhonetic && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <p style={{ color: '#e9c46a', fontSize: '24px', fontFamily: 'monospace', fontWeight: 'bold', margin: 0 }}>[{words[currentIndex]?.read}]</p>
-                        <p style={{ fontSize: '38px', fontWeight: 'bold', color: '#f4f4f5', margin: 0 }}>{words[currentIndex]?.zh}</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <p style={{ color: '#dfb28c', fontSize: '24px', fontWeight: 'bold', margin: 0 }}>[{words[currentIndex]?.read}]</p>
+                        <p style={{ fontSize: '38px', fontWeight: 'bold', color: '#fff', margin: 0 }}>{words[currentIndex]?.zh}</p>
                       </div>
                     )}
-                    <p style={{ fontSize: '13px', color: '#4b4b54', fontWeight: 'bold', marginTop: '40px' }}>💡 轻触大卡片任何区域，即可翻面显示含义与发音提示</p>
                   </div>
 
-                  <div style={{ backgroundColor: 'rgba(25, 25, 28, 0.4)', border: '1px solid rgba(255,255,255,0.05)', padding: '16px', borderRadius: '18px', display: 'flex', justifyContent: 'space-between', items: 'center' }}>
-                    <button onClick={()=>playAudio(words[currentIndex]?.thai)} style={{ backgroundColor: '#e9c46a', color: '#0a0a0c', fontWeight: '900', border: 'none', padding: '16px 30px', borderRadius: '14px', fontSize: '16px', cursor: 'pointer' }}>🔊 触听系统标准原音（硬件级必响）</button>
-                    
-                    {/* ✨ 锁死收藏联动高亮按钮 */}
-                    <button onClick={()=>toggleFavorite(words[currentIndex]?.id)} style={{ padding: '16px 26px', borderRadius: '14px', fontSize: '16px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: favorites.includes(words[currentIndex]?.id) ? '#eab308' : 'transparent', color: favorites.includes(words[currentIndex]?.id) ? '#0a0a0c' : '#d4d4d8' }}>
-                      {favorites.includes(words[currentIndex]?.id) ? '★ 已收入个人单词本' : '☆ 收藏此词汇'}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '15px' }}>
+                    <button onClick={()=>playAudio(words[currentIndex]?.thai)} style={{ flex: 2, backgroundColor: '#dfb28c', color: '#09090b', fontWeight: '900', border: 'none', padding: '16px', borderRadius: '14px', fontSize: '16px', cursor: 'pointer' }}>🔊 听取标准正音（多通道必响）</button>
+                    <button onClick={()=>toggleFavorite(words[currentIndex]?.id)} style={{ flex: 1, padding: '16px', borderRadius: '14px', fontSize: '15px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: favorites.includes(words[currentIndex]?.id) ? '#dfb28c' : 'transparent', color: favorites.includes(words[currentIndex]?.id) ? '#09090b' : '#fff' }}>
+                      {favorites.includes(words[currentIndex]?.id) ? '★ 已加入收藏' : '☆ 收藏此词'}
                     </button>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '16px' }}>
-                    <button onClick={()=>{ setShowPhonetic(false); setCurrentIndex((currentIndex - 1 + words.length) % words.length); }} style={{ flex: 1, backgroundColor: 'rgba(25, 25, 28, 0.4)', border: '1px solid rgba(255,255,255,0.05)', padding: '18px', borderRadius: '14px', fontSize: '16px', fontWeight: 'bold', color: '#a1a1aa', cursor: 'pointer' }}>◁ 上一知识点</button>
-                    <button onClick={handleNextWord} style={{ flex: 1, backgroundColor: '#e9c46a', border: 'none', padding: '18px', borderRadius: '14px', fontSize: '16px', fontWeight: '900', color: '#0a0a0c', cursor: 'pointer' }}>记住了，下一个 ▷</button>
+                  <div style={{ display: 'flex', gap: '15px' }}>
+                    <button onClick={()=>{ setShowPhonetic(false); setCurrentIndex((currentIndex - 1 + words.length) % words.length); }} style={{ flex: 1, backgroundColor: 'rgba(25, 25, 28, 0.4)', border: '1px solid rgba(255,255,255,0.05)', padding: '16px', borderRadius: '14px', color: '#a1a1aa', cursor: 'pointer' }}>◁ 上一个</button>
+                    <button onClick={handleNextWord} style={{ flex: 1, backgroundColor: '#dfb28c', border: 'none', padding: '16px', borderRadius: '14px', fontWeight: '900', color: '#09090b', cursor: 'pointer' }}>下一个 ▷</button>
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* 个人数据复习大盘 */}
-          {currentTab === 'home' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-              <div style={{ backgroundColor: 'rgba(25, 25, 28, 0.5)', border: '1px solid rgba(255,255,255,0.05)', padding: '24px', borderRadius: '20px', textAlign: 'center' }}>
-                <p style={{ color: '#71717a', fontSize: '13px', fontWeight: 'bold' }}>云端备份收藏量</p>
-                <h4 style={{ fontSize: '32px', fontWeight: 'black', marginTop: '10px', color: '#e4e4e7' }}>🌟 {favorites.length} 个词汇</h4>
-              </div>
             </div>
           )}
 
