@@ -44,6 +44,11 @@ const THAI_ALPHABET = {
   ]
 };
 
+const GRAMMAR_LESSONS = [
+  { title: "📌 核心词序：修饰语100%后置规律", content: "泰语的基本语序和中文一样，都是主谓宾（SVO结构）。但是！泰语的【定语/状语等修饰词，必须放在被修饰词的后面】。\n\n例如：\n中文说“大象”，泰语说“象大”（ช้างใหญ่）。\n中文说“炒饭”，泰语说“饭炒”（ข้าวผัด）。" },
+  { title: "🎵 声调拼读：辅音类型决定音调起点", content: "泰语有五个声调。声调的最终判定由【辅音的类别（中/高/低辅音） + 元音的长短】共同决定。掌握好高低辅音的归类，发音就成功了一半。" }
+];
+
 export default function Home() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState({ streak_days: 0, total_words_learned: 0, today_words_learned: 0 });
@@ -57,6 +62,8 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showPhonetic, setShowPhonetic] = useState(false);
   const [musicPlaying, setMusicPlaying] = useState(false);
+  const [testOptions, setTestOptions] = useState([]);
+  const [testFeedback, setTestFeedback] = useState(null);
 
   const audioPlayerRef = useRef(null);
   const musicPlayerRef = useRef(null);
@@ -98,60 +105,52 @@ export default function Home() {
   
   async function handleSignOut() { await supabase.auth.signOut(); setUser(null); setFavorites([]); }
   
+  // 🔊 【双轨穿透音频引擎】：多通道网络闪切 + 本地浏览器底层硬件强制解码，双保险解锁不出音
   function playAudio(text, isAlphabet = false, alphaRead = "") { 
     if (!text) return;
     const queryText = (isAlphabet && alphaRead) ? alphaRead : text;
     
+    // 轨迹一：硬件发声（100%穿透，不经过网络）
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(queryText);
+      utterance.lang = isAlphabet ? 'en-US' : 'th-TH';
+      utterance.rate = 0.85;
+      window.speechSynthesis.speak(utterance);
+    } catch(e){}
+
+    // 轨迹二：共享单例音频流（网络补充）
     if (!audioPlayerRef.current) {
       audioPlayerRef.current = new Audio();
       audioPlayerRef.current.crossOrigin = "anonymous";
     }
-
     const channels = [
       `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(queryText)}&le=th`,
       `https://tts.baidu.com/text2audio?lan=th&ie=UTF-8&text=${encodeURIComponent(queryText)}`
     ];
-
     let currentChannel = 0;
     function runChannel() {
-      if (currentChannel >= channels.length) {
-        try {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(queryText);
-          utterance.lang = isAlphabet ? 'en-US' : 'th-TH';
-          window.speechSynthesis.speak(utterance);
-        } catch(e){}
-        return;
-      }
+      if (currentChannel >= channels.length) return;
       audioPlayerRef.current.src = channels[currentChannel];
-      audioPlayerRef.current.play().catch(() => {
-        currentChannel++;
-        runChannel();
-      });
+      audioPlayerRef.current.play().catch(() => { currentChannel++; runChannel(); });
     }
     runChannel();
   }
 
   function toggleLoveMusic() {
     if (!musicPlayerRef.current) {
+      // 许嵩-《你若成风》原生流链接
       musicPlayerRef.current = new Audio("https://music.163.com/song/media/outer/url?id=5255987.mp3");
       musicPlayerRef.current.loop = true;
       musicPlayerRef.current.volume = 0.4;
     }
-
-    if (musicPlaying) {
-      musicPlayerRef.current.pause();
-      setMusicPlaying(false);
-    } else {
-      musicPlayerRef.current.play().catch(e => console.log("等待激活"));
-      setMusicPlaying(true);
-    }
+    if (musicPlaying) { musicPlayerRef.current.pause(); setMusicPlaying(false); } 
+    else { musicPlayerRef.current.play().catch(e => console.log("流缓冲")); setMusicPlaying(true); }
   }
 
   async function toggleFavorite(wordId) {
     if (!wordId) return;
     if (!user) return alert("请先点击右上方登录，即可启用云端同步收藏夹！");
-    
     const isFav = favorites.includes(wordId);
     if (isFav) {
       setFavorites(favorites.filter(id => id !== wordId));
@@ -171,14 +170,13 @@ export default function Home() {
   return (
     <div style={{ background: 'linear-gradient(135deg, #09090b 0%, #141417 100%)', color: '#e4e4e7', padding: '30px 15px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
       
-      {/* 🔮 导航栏 */}
+      {/* 🔮 极窄黑金悬浮导航栏 */}
       <nav style={{ backgroundColor: 'rgba(15, 15, 18, 0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.06)', padding: '14px 24px', borderRadius: '20px', position: 'sticky', top: '20px', zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.5)', maxWidth: '1000px', margin: '0 auto 40px auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '24px' }}>🌿</span>
             <span style={{ color: '#dfb28c', fontSize: '22px', fontWeight: 'bold', fontFamily: 'Georgia, serif' }}>DuoThai.ins</span>
           </div>
-
           <div>
             {!user ? (
               <button onClick={() => setShowAuthModal(true)} style={{ backgroundColor: '#dfb28c', color: '#09090b', fontWeight: '900', border: 'none', padding: '10px 22px', borderRadius: '12px', cursor: 'pointer', fontSize: '14px' }}>🔑 快捷登录 / 注册账户</button>
@@ -192,10 +190,10 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* 🔑 弹窗 */}
+      {/* 🔑 账户登录弹窗 */}
       {showAuthModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(15px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.08)', padding: '35px', borderRadius: '24px', width: '360px', textAlign: 'center', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(15px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyCenter: 'center' }}>
+          <div style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.08)', padding: '35px', borderRadius: '24px', width: '360px', textAlign: 'center' }}>
             <h3 style={{ margin: '0 0 20px 0', color: '#dfb28c', fontSize: '20px', fontWeight: 'bold' }}>同步个人复习进度</h3>
             <input type="email" placeholder="输入您的电子邮箱" onChange={e=>setEmail(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: '#09090b', border: '1px solid #27272a', color: '#fff', marginBottom: '12px', outline: 'none' }}/>
             <input type="password" placeholder="设置您的账户密码" onChange={e=>setPassword(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: '#09090b', border: '1px solid #27272a', color: '#fff', marginBottom: '20px', outline: 'none' }}/>
@@ -208,11 +206,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🏛️ 网格 */}
+      {/* 🏛️ 黑金主面板 */}
       <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '35px' }}>
         
-        {/* 左侧 */}
+        {/* 左侧全面对齐放大的导航分类控制台 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <h3 style={{ fontWeight: '900', color: '#52525b', fontSize: '12px', paddingLeft: '12px', margin: '0 0 5px 0' }}>泰语单词分类课程</h3>
           {['日常生活', '旅游', '食物', '数字', '直播常用语'].map((cat) => (
             <button key={cat} onClick={() => { setCurrentCategory(cat); setCurrentTab('study'); }}
               style={{ 
@@ -225,7 +224,14 @@ export default function Home() {
             </button>
           ))}
           <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)' }}/>
+          <h3 style={{ fontWeight: '900', color: '#52525b', fontSize: '12px', paddingLeft: '12px', margin: '0 0 5px 0' }}>核心进阶深度框架</h3>
           <button onClick={() => setCurrentTab('alphabet')} style={{ width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '16px', fontSize: '18px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: currentTab==='alphabet'?'#dfb28c':'rgba(20, 20, 23, 0.6)', color: currentTab==='alphabet'?'#09090b':'#e4e4e7' }}>🔤 泰语全量字母表盘</button>
+          
+          {/* ✨ 修复：重新补全加载之前漏掉的语法讲堂按钮 */}
+          <button onClick={() => setCurrentTab('grammar')} style={{ width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '16px', fontSize: '18px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: currentTab==='grammar'?'#dfb28c':'rgba(20, 20, 23, 0.6)', color: currentTab==='grammar'?'#09090b':'#e4e4e7' }}>📖 泰语基础语法精讲</button>
+          
+          {/* ✨ 修复：重新补全加载之前漏掉的个人复习进度大盘按钮 */}
+          <button onClick={() => setCurrentTab('home')} style={{ width: '100%', textAlign: 'left', padding: '18px 22px', borderRadius: '16px', fontSize: '18px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: currentTab==='home'?'#dfb28c':'rgba(20, 20, 23, 0.6)', color: currentTab==='home'?'#09090b':'#e4e4e7' }}>🏠 个人进度复习看板</button>
           
           <button onClick={() => setCurrentTab('love')} 
             style={{ 
@@ -236,10 +242,10 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 右侧 */}
+        {/* 右侧流体舞台区域 */}
         <div style={{ gridColumn: 'span 3' }}>
 
-          {/* 字母表 */}
+          {/* 全量字母表盘 */}
           {currentTab === 'alphabet' && (
             <div style={{ backgroundColor: 'rgba(20, 20, 23, 0.6)', border: '1px solid rgba(255,255,255,0.05)', padding: '35px', borderRadius: '24px' }}>
               <h2 style={{ color: '#dfb28c', fontSize: '24px', fontWeight: 'bold', margin: '0 0 25px 0', fontFamily: 'Georgia, serif' }}>🔤 泰语声韵母全量大表盘</h2>
@@ -254,7 +260,30 @@ export default function Home() {
             </div>
           )}
 
-          {/* 表白页 */}
+          {/* ✨ 修复补全：泰语核心精讲语法模块 */}
+          {currentTab === 'grammar' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#dfb28c', fontFamily: 'Georgia, serif' }}>📖 泰语基础核心语法总纲</h2>
+              {GRAMMAR_LESSONS.map((lesson, idx) => (
+                <div key={idx} style={{ backgroundColor: 'rgba(20, 20, 23, 0.6)', border: '1px solid rgba(255,255,255,0.05)', padding: '24px', borderRadius: '24px' }}>
+                  <h3 style={{ color: '#dfb28c', fontSize: '18px', fontWeight: 'bold', margin: '0 0 12px 0' }}>📎 {lesson.title}</h3>
+                  <p style={{ fontSize: '16px', color: '#d6d3d1', lineHeight: '1.7', whiteSpace: 'pre-line' }}>{lesson.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ✨ 修复补全：个人进度数据池复习大盘 */}
+          {currentTab === 'home' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+              <div style={{ backgroundColor: 'rgba(20, 20, 23, 0.6)', border: '1px solid rgba(255,255,255,0.05)', padding: '30px', borderRadius: '20px', textAlign: 'center' }}>
+                <p style={{ color: '#71717a', fontSize: '14px', fontWeight: 'bold', margin: 0 }}>云端托管单词收藏池</p>
+                <h4 style={{ fontSize: '36px', fontWeight: '900', marginTop: '15px', color: '#dfb28c' }}>🌟 {favorites.length} 个词汇</h4>
+              </div>
+            </div>
+          )}
+
+          {/* 周玉平 浪漫表白空间（许嵩《你若成风》内嵌必响版） */}
           {currentTab === 'love' && (
             <div style={{ background: 'linear-gradient(145deg, #180c10 0%, #09090b 100%)', border: '1px solid #7f1d1d', padding: '40px', borderRadius: '32px', textAlign: 'center' }}>
               <h4 style={{ fontSize: '22px', fontWeight: 'bold', color: '#fecdd3', fontFamily: 'Georgia, serif', margin: '0 0 20px 0' }}>致周玉平 · 电影感星空信笺</h4>
@@ -271,7 +300,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* 闪卡 */}
+          {/* 单词复习闪卡 */}
           {currentTab === 'study' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {words.length > 0 && (
@@ -288,7 +317,7 @@ export default function Home() {
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '15px' }}>
-                    <button onClick={()=>playAudio(words[currentIndex]?.thai)} style={{ flex: 2, backgroundColor: '#dfb28c', color: '#09090b', fontWeight: '900', border: 'none', padding: '16px', borderRadius: '14px', fontSize: '16px', cursor: 'pointer' }}>🔊 听取标准正音（多通道必响）</button>
+                    <button onClick={()=>playAudio(words[currentIndex]?.thai)} style={{ flex: 2, backgroundColor: '#dfb28c', color: '#09090b', fontWeight: '900', border: 'none', padding: '16px', borderRadius: '14px', fontSize: '16px', cursor: 'pointer' }}>🔊 听取系统标准原音（双轨全控发声）</button>
                     <button onClick={()=>toggleFavorite(words[currentIndex]?.id)} style={{ flex: 1, padding: '16px', borderRadius: '14px', fontSize: '15px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: favorites.includes(words[currentIndex]?.id) ? '#dfb28c' : 'transparent', color: favorites.includes(words[currentIndex]?.id) ? '#09090b' : '#fff' }}>
                       {favorites.includes(words[currentIndex]?.id) ? '★ 已加入收藏' : '☆ 收藏此词'}
                     </button>
