@@ -10,7 +10,6 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// 🌍 超大规模精编词库（含打通 1-100、百、千、万，以及旅居炒菜高频词）
 const ONLINE_BUILTIN_WORDS = [
   // 【数字分类全量打通】
   { id: 5001, category: '数字', thai: 'หนึ่ง', read: 'neung', zh: '1' },
@@ -47,7 +46,7 @@ const ONLINE_BUILTIN_WORDS = [
   { id: 5999, category: '数字', thai: 'หนึ่งพัน', read: 'neung-phan', zh: '1,000 (千)' },
   { id: 5998, category: '数字', thai: 'หนึ่งหมื่น', read: 'neung-muen', zh: '10,000 (万)' },
 
-  // 【食物分类扩容 - 针对大淞泰国旅居高频菜品精编】
+  // 【食物分类】
   { id: 3001, category: '食物', thai: 'ผัดกะเพราหมูสับ', read: 'phat-ka-phrao-mu-sap', zh: '圣杯罗勒炒猪肉碎（打抛猪）' },
   { id: 3002, category: '食物', thai: 'ผัดกะเพราเนื้อ', read: 'phat-ka-phrao-nuea', zh: '罗勒炒牛肉（打抛牛）' },
   { id: 3004, category: '食物', thai: 'หมูกระเทียม', read: 'mu-kra-thiam', zh: '蒜香猪肉' },
@@ -80,7 +79,6 @@ const ONLINE_BUILTIN_WORDS = [
   { id: 4004, category: '直播常用语', thai: 'แชร์ให้หน่อย', read: 'chaer-hai-noi', zh: '帮我分享一下直播间' }
 ];
 
-// 🔤 官方定义全部 44 个辅音字母表盘数据
 const THAI_ALPHABET = {
   consonants: [
     { thai: 'ก', read: 'ko kai', type: '中辅音', zh: '鸡' }, { thai: 'ข', read: 'kho khai', type: '高辅音', zh: '蛋' },
@@ -130,7 +128,6 @@ export default function Home() {
   const [reviewMode, setReviewMode] = useState(false); 
 
   const audioPlayerRef = useRef(null);
-  const musicPlayerRef = useRef(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -178,7 +175,6 @@ export default function Home() {
   
   async function handleSignOut() { await supabase.auth.signOut(); setUser(null); setFavorites([]); setReviewMode(false); }
   
-  // 🔊 【微软 Azure 神经网络发音核心转换引擎】：彻底踹开公共降级通道，直接请求微软正规军服务
   async function playAudio(text, isAlphabet = false, alphaRead = "") { 
     if (!text) return;
     const queryText = (isAlphabet && alphaRead) ? alphaRead : text;
@@ -188,7 +184,6 @@ export default function Home() {
       audioPlayerRef.current.crossOrigin = "anonymous";
     }
 
-    // 💡 降级保护：如果未配置微软 Key，平滑降级使用保底通道
     if (!AZURE_SPEECH_KEY || AZURE_SPEECH_KEY.includes("YOUR_AZURE_KEY")) {
       audioPlayerRef.current.src = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(queryText)}&le=${isAlphabet ? 'en' : 'th'}`;
       audioPlayerRef.current.play().catch(()=>{});
@@ -196,7 +191,6 @@ export default function Home() {
     }
 
     try {
-      // 微软神经网络发音人：辅音用英文 Jenny 读名字，单词用泰语高清晰 Premwadee 拼读
       const voiceName = isAlphabet ? "en-US-JennyNeural" : "th-TH-PremwadeeNeural";
       const ssml = `<speak version='1.0' xml:lang='${isAlphabet ? 'en-US' : 'th-TH'}'><voice name='${voiceName}'>${queryText}</voice></speak>`;
 
@@ -211,37 +205,30 @@ export default function Home() {
         body: ssml
       });
 
-      if (!response.ok) throw new Error("微软服务未对齐");
+      if (!response.ok) throw new Error("微软未就绪");
       const blob = await response.blob();
       const audioUrl = URL.createObjectURL(blob);
       audioPlayerRef.current.src = audioUrl;
-      audioPlayerRef.current.play().catch(e => console.log(e));
+      audioPlayerRef.current.play().catch(()=>{});
     } catch(err) {
-      // 保底通道
       audioPlayerRef.current.src = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(queryText)}&le=${isAlphabet ? 'en' : 'th'}`;
       audioPlayerRef.current.play().catch(()=>{});
     }
   }
 
+  // 🎵 核心大改动：通过向隐形 iframe 通信实现 YouTube 视频流播放/暂停无缝控制
   function toggleLoveMusic() {
-    if (!musicPlayerRef.current) {
-      // 🌟 换用全新满血直连的高清音频流节点接口（许嵩-《你若成风》无损重现）
-      musicPlayerRef.current = new Audio("https://music.163.com/song/media/outer/url?id=5255987.mp3");
-      musicPlayerRef.current.loop = true;
-      musicPlayerRef.current.volume = 0.4;
-      musicPlayerRef.current.crossOrigin = "anonymous";
-    }
-    if (musicPlaying) { 
-      musicPlayerRef.current.pause(); 
-      setMusicPlaying(false); 
-    } else { 
-      const playPromise = musicPlayerRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.then(() => { setMusicPlaying(true); }).catch(() => {
-          musicPlayerRef.current.play();
-          setMusicPlaying(true);
-        });
-      }
+    const iframe = document.getElementById('youtube-player');
+    if (!iframe) return;
+    
+    if (musicPlaying) {
+      // 向 iframe 发送暂停指令
+      iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+      setMusicPlaying(false);
+    } else {
+      // 向 iframe 发送播放指令
+      iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+      setMusicPlaying(true);
     }
   }
 
@@ -267,8 +254,8 @@ export default function Home() {
   return (
     <div style={{ background: 'linear-gradient(135deg, #09090b 0%, #111113 100%)', color: '#e4e4e7', padding: '15px 10px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
       
-      {/* 🔮 零悬浮页眉（彻底解决悬浮和挤压变形，往下滑跟随消失） */}
-      <header style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.06)', padding: '16px 20px', borderRadius: '16px', maxWidth: '1000px', margin: '0 auto 25px auto', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+      {/* 🔮 零悬浮页眉（彻底跟随网页滑走消失） */}
+      <header style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.06)', padding: '16px 20px', borderRadius: '16px', maxWidth: '1000px', margin: '0 auto 25px auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '22px' }}>🌿</span>
@@ -303,7 +290,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 📱 移动端自适应高级横向滑动轨条 */}
+      {/* 📱 移动端横向滑动滑块 */}
       <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
         <div style={{ display: 'flex', overflowX: 'auto', gap: '10px', paddingBottom: '15px', marginBottom: '20px', WebkitOverflowScrolling: 'touch' }} className="hide-scrollbar">
           {['日常生活', '旅游', '食物', '数字', '直播常用语'].map((cat) => (
@@ -355,26 +342,36 @@ export default function Home() {
             </div>
           )}
 
-          {/* 看板专属单词复习机制 */}
+          {/* 看板温故复习 */}
           {currentTab === 'home' && (
             <div style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.05)', padding: '25px', borderRadius: '20px', textAlign: 'center' }}>
               <p style={{ color: '#a1a1aa', fontSize: '14px', margin: 0 }}>云端数据库实时同步</p>
               <h4 style={{ fontSize: '42px', fontWeight: '900', color: '#dfb28c', margin: '15px 0' }}>🌟 {favorites.length} 个收藏词</h4>
-              <button onClick={() => { if (favorites.length === 0) return alert("您的收藏本里目前空空如也，先去前面的词汇里收藏一些吧！"); setReviewMode(true); setCurrentTab('study'); }}
-                style={{ backgroundColor: '#dfb28c', color: '#09090b', fontWeight: '900', border: 'none', padding: '14px 28px', borderRadius: '14px', fontSize: '15px', cursor: 'pointer', boxShadow: '0 5px 15px rgba(223,178,140,0.3)' }}>
+              <button onClick={() => { if (favorites.length === 0) return alert("您的收藏本里目前空空如也，先去自学闪卡里收藏几个词汇吧！"); setReviewMode(true); setCurrentTab('study'); }}
+                style={{ backgroundColor: '#dfb28c', color: '#09090b', fontWeight: '900', border: 'none', padding: '14px 28px', borderRadius: '14px', fontSize: '15px', cursor: 'pointer' }}>
                 📖 开启专属单词本温故复习
               </button>
             </div>
           )}
 
-          {/* 周玉平 浪漫表白空间（许嵩《你若成风》原生流包响版） */}
+          {/* 💝 周玉平 浪漫表白大空间（🎥 强行打通：隐形嵌入式视频伴奏核心） */}
           {currentTab === 'love' && (
-            <div style={{ background: 'linear-gradient(145deg, #1f0d12 0%, #09090b 100%)', border: '1px solid #7f1d1d', padding: '35px 20px', borderRadius: '24px', textAlign: 'center' }}>
+            <div style={{ background: 'linear-gradient(145deg, #1f0d12 0%, #09090b 100%)', border: '1px solid #7f1d1d', padding: '35px 20px', borderRadius: '24px', textAlign: 'center', position: 'relative' }}>
+              
+              {/* 🎯 隐形 YouTube 1px 极小播放内核：直连许嵩《你若成风》官方高清视频流，开启 enablejsapi 赋予控制权 */}
+              <iframe 
+                id="youtube-player"
+                src="https://www.youtube.com/embed/5F_fV3m38bM?enablejsapi=1&autoplay=0&loop=1&playlist=5F_fV3m38bM"
+                style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0, top: 0, left: 0, border: 'none', pointerEvents: 'none' }}
+                allow="autoplay; encrypted-media"
+              ></iframe>
+
               <span style={{ fontSize: '32px', display: 'block', marginBottom: '10px' }}>🌹</span>
               <h4 style={{ fontSize: '20px', fontWeight: 'bold', color: '#fecdd3', fontFamily: 'Georgia, serif', margin: '0 0 20px 0' }}>致周玉平 · 电影感沉浸星空信笺</h4>
               
-              <button onClick={toggleLoveMusic} style={{ backgroundColor: musicPlaying ? '#dc2626' : '#27272a', color: '#fff', border: 'none', padding: '12px 26px', borderRadius: '16px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '25px' }}>
-                {musicPlaying ? "⏸ 暂停播放 许嵩 -《你若成风》" : "🎵 播放专属背景音乐：许嵩 -《你若成风》"}
+              {/* 🎵 视频音乐控制核心 */}
+              <button onClick={toggleLoveMusic} style={{ backgroundColor: musicPlaying ? '#dc2626' : '#27272a', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '16px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '25px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                {musicPlaying ? "⏸ 暂停背景视频音乐" : "🎵 开启专属视频背景音乐：许嵩-《你若成风》"}
               </button>
 
               <div style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid #450a0a', padding: '25px 15px', borderRadius: '16px', cursor: 'pointer' }} onClick={()=>playAudio("ผมรักคุณหมดหัวใจ")}>
@@ -432,6 +429,7 @@ export default function Home() {
         </div>
       </div>
       
+      {/* 隐藏滑动条原生内联样式 */}
       <style jsx global>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
