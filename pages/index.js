@@ -128,6 +128,7 @@ export default function Home() {
   const [reviewMode, setReviewMode] = useState(false); 
 
   const audioPlayerRef = useRef(null);
+  const musicPlayerRef = useRef(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -216,19 +217,24 @@ export default function Home() {
     }
   }
 
-  // 🎵 核心大改动：通过向隐形 iframe 通信实现 YouTube 视频流播放/暂停无缝控制
+  // 🎵 【原生无阻碍直连】：砍掉所有网络流，直接调取你放进 public 文件夹下的静态资产音频
   function toggleLoveMusic() {
-    const iframe = document.getElementById('youtube-player');
-    if (!iframe) return;
-    
-    if (musicPlaying) {
-      // 向 iframe 发送暂停指令
-      iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-      setMusicPlaying(false);
-    } else {
-      // 向 iframe 发送播放指令
-      iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
-      setMusicPlaying(true);
+    if (!musicPlayerRef.current) {
+      musicPlayerRef.current = new Audio("/music.mp3"); // 👈 直接直连读取你刚刚放入的 public/music.mp3
+      musicPlayerRef.current.loop = true;
+      musicPlayerRef.current.volume = 0.4;
+    }
+    if (musicPlaying) { 
+      musicPlayerRef.current.pause(); 
+      setMusicPlaying(false); 
+    } else { 
+      musicPlayerRef.current.play()
+        .then(() => { setMusicPlaying(true); })
+        .catch(() => {
+          // 捕获浏览器首位激活限制兜底
+          musicPlayerRef.current.play();
+          setMusicPlaying(true);
+        });
     }
   }
 
@@ -254,7 +260,7 @@ export default function Home() {
   return (
     <div style={{ background: 'linear-gradient(135deg, #09090b 0%, #111113 100%)', color: '#e4e4e7', padding: '15px 10px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
       
-      {/* 🔮 零悬浮页眉（彻底跟随网页滑走消失） */}
+      {/* 🔮 零悬浮页眉（跟随网页消失） */}
       <header style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.06)', padding: '16px 20px', borderRadius: '16px', maxWidth: '1000px', margin: '0 auto 25px auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -274,7 +280,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* 🔑 独立账户登录弹窗 */}
+      {/* 🔑 账户登录弹窗 */}
       {showAuthModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px' }}>
           <div style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.08)', padding: '25px', borderRadius: '20px', width: '100%', maxWidth: '350px', textAlign: 'center' }}>
@@ -290,7 +296,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 📱 移动端横向滑动滑块 */}
+      {/* 📱 移动端自适应横向滑块 */}
       <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
         <div style={{ display: 'flex', overflowX: 'auto', gap: '10px', paddingBottom: '15px', marginBottom: '20px', WebkitOverflowScrolling: 'touch' }} className="hide-scrollbar">
           {['日常生活', '旅游', '食物', '数字', '直播常用语'].map((cat) => (
@@ -310,10 +316,10 @@ export default function Home() {
           <button onClick={() => { setReviewMode(false); setCurrentTab('love'); }} style={{ flex: '0 0 auto', padding: '10px 18px', borderRadius: '12px', fontSize: '14px', fontWeight: '900', border: '1px solid #991b1b', cursor: 'pointer', backgroundColor: currentTab==='love'?'#dc2626':'rgba(153, 27, 27, 0.15)', color: '#fff' }}>💝 致周玉平</button>
         </div>
 
-        {/* 流体主舞台 */}
+        {/* 主舞台 */}
         <div style={{ width: '100%' }}>
 
-          {/* 全量 44 字母 */}
+          {/* 全量辅音字母 */}
           {currentTab === 'alphabet' && (
             <div style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.05)', padding: '20px 15px', borderRadius: '20px' }}>
               <h2 style={{ color: '#dfb28c', fontSize: '20px', fontWeight: 'bold', margin: '0 0 15px 0' }}>🔤 泰语官方规范全量 44 辅音表盘</h2>
@@ -329,7 +335,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* 语法精讲 */}
+          {/* 语法 */}
           {currentTab === 'grammar' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#dfb28c' }}>📖 泰语自适应深度语法讲堂</h2>
@@ -342,36 +348,26 @@ export default function Home() {
             </div>
           )}
 
-          {/* 看板温故复习 */}
+          {/* 复习 */}
           {currentTab === 'home' && (
             <div style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.05)', padding: '25px', borderRadius: '20px', textAlign: 'center' }}>
               <p style={{ color: '#a1a1aa', fontSize: '14px', margin: 0 }}>云端数据库实时同步</p>
               <h4 style={{ fontSize: '42px', fontWeight: '900', color: '#dfb28c', margin: '15px 0' }}>🌟 {favorites.length} 个收藏词</h4>
-              <button onClick={() => { if (favorites.length === 0) return alert("您的收藏本里目前空空如也，先去自学闪卡里收藏几个词汇吧！"); setReviewMode(true); setCurrentTab('study'); }}
+              <button onClick={() => { if (favorites.length === 0) return alert("您的收藏本里目前空空如也，先去前面的词汇里收藏一些吧！"); setReviewMode(true); setCurrentTab('study'); }}
                 style={{ backgroundColor: '#dfb28c', color: '#09090b', fontWeight: '900', border: 'none', padding: '14px 28px', borderRadius: '14px', fontSize: '15px', cursor: 'pointer' }}>
                 📖 开启专属单词本温故复习
               </button>
             </div>
           )}
 
-          {/* 💝 周玉平 浪漫表白大空间（🎥 强行打通：隐形嵌入式视频伴奏核心） */}
+          {/* 💝 表白页（静态本地资产直连驱动） */}
           {currentTab === 'love' && (
-            <div style={{ background: 'linear-gradient(145deg, #1f0d12 0%, #09090b 100%)', border: '1px solid #7f1d1d', padding: '35px 20px', borderRadius: '24px', textAlign: 'center', position: 'relative' }}>
-              
-              {/* 🎯 隐形 YouTube 1px 极小播放内核：直连许嵩《你若成风》官方高清视频流，开启 enablejsapi 赋予控制权 */}
-              <iframe 
-                id="youtube-player"
-                src="https://www.youtube.com/embed/5F_fV3m38bM?enablejsapi=1&autoplay=0&loop=1&playlist=5F_fV3m38bM"
-                style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0, top: 0, left: 0, border: 'none', pointerEvents: 'none' }}
-                allow="autoplay; encrypted-media"
-              ></iframe>
-
+            <div style={{ background: 'linear-gradient(145deg, #1f0d12 0%, #09090b 100%)', border: '1px solid #7f1d1d', padding: '35px 20px', borderRadius: '24px', textAlign: 'center' }}>
               <span style={{ fontSize: '32px', display: 'block', marginBottom: '10px' }}>🌹</span>
               <h4 style={{ fontSize: '20px', fontWeight: 'bold', color: '#fecdd3', fontFamily: 'Georgia, serif', margin: '0 0 20px 0' }}>致周玉平 · 电影感沉浸星空信笺</h4>
               
-              {/* 🎵 视频音乐控制核心 */}
               <button onClick={toggleLoveMusic} style={{ backgroundColor: musicPlaying ? '#dc2626' : '#27272a', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '16px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '25px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                {musicPlaying ? "⏸ 暂停背景视频音乐" : "🎵 开启专属视频背景音乐：许嵩-《你若成风》"}
+                {musicPlaying ? "⏸ 暂停背景音乐" : "🎵 播放原生伴奏音乐：许嵩-《你若成风》"}
               </button>
 
               <div style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid #450a0a', padding: '25px 15px', borderRadius: '16px', cursor: 'pointer' }} onClick={()=>playAudio("ผมรักคุณหมดหัวใจ")}>
@@ -386,7 +382,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* 单词自学闪卡 */}
+          {/* 闪卡 */}
           {currentTab === 'study' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {words.length > 0 ? (
@@ -429,7 +425,6 @@ export default function Home() {
         </div>
       </div>
       
-      {/* 隐藏滑动条原生内联样式 */}
       <style jsx global>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
