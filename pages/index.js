@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// ======================== 【Supabase 凭证】 ========================
+// ======================== 【已锁死的凭证：请在此处填入你的微软密钥】 ========================
+const AZURE_SPEECH_KEY = "FunoRbAymdKCnjiT9JMbUCG52vFgc9X2jBTBsnjQtw1KZZ4xJbAyJQQJ99CFAC3pKaRXJ3w3AAAYACOGyXGq"; 
+const AZURE_REGION = "eastasia"; 
 const SUPABASE_URL = "https://yjipexzowgjccmhmclef.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqaXBleHpvd2dqY2NtaG1jbGVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMzEzNzksImV4cCI6MjA5NzkwNzM3OX0.zlRtxkfjlViBpiW0hYEVcvtwJou8I8cebFiIWgBIQFo";
 // =================================================================================
@@ -103,8 +105,8 @@ export default function Home() {
   
   async function handleSignOut() { await supabase.auth.signOut(); setUser(null); setFavorites([]); }
   
-  // 🔊 【终极高兼容网络发音引擎】：采用有道+谷歌双重高频直连流，100%解决泰语单词不出音问题
-  function playAudio(text, isAlphabet = false, alphaRead = "") { 
+  // 🔊 【微软 Azure 神经网络发音核心转换引擎】：绕过公共接口，直连正规军服务器
+  async function playAudio(text, isAlphabet = false, alphaRead = "") { 
     if (!text) return;
     const queryText = (isAlphabet && alphaRead) ? alphaRead : text;
 
@@ -113,30 +115,42 @@ export default function Home() {
       audioPlayerRef.current.crossOrigin = "anonymous";
     }
 
-    // 针对字母和普通单词使用不同的发音优化通道
-    const channels = isAlphabet ? [
-      `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(queryText)}&le=en`,
-      `https://tts.baidu.com/text2audio?lan=en&ie=UTF-8&text=${encodeURIComponent(queryText)}`
-    ] : [
-      `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(queryText)}&le=th`,
-      `https://translate.google.com/translate_tts?ie=UTF-8&tl=th&client=tw-ob&q=${encodeURIComponent(queryText)}`
-    ];
-
-    let currentChannel = 0;
-    function runChannel() {
-      if (currentChannel >= channels.length) return;
-      audioPlayerRef.current.src = channels[currentChannel];
-      const playPromise = audioPlayerRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => { currentChannel++; runChannel(); });
-      }
+    // 如果未配置微软Key，平滑降级使用保底通道
+    if (!AZURE_SPEECH_KEY || AZURE_SPEECH_KEY.includes("这里填")) {
+      audioPlayerRef.current.src = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(queryText)}&le=${isAlphabet ? 'en' : 'th'}`;
+      audioPlayerRef.current.play().catch(()=>{});
+      return;
     }
-    runChannel();
+
+    try {
+      const voiceName = isAlphabet ? "en-US-JennyNeural" : "th-TH-PremwadeeNeural";
+      const ssml = `<speak version='1.0' xml:lang='${isAlphabet ? 'en-US' : 'th-TH'}'><voice name='${voiceName}'>${queryText}</voice></speak>`;
+
+      const response = await fetch(`https://${AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': AZURE_SPEECH_KEY,
+          'Content-Type': 'application/ssml+xml',
+          'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+          'User-Agent': 'DuoThaiApp'
+        },
+        body: ssml
+      });
+
+      if (!response.ok) throw new Error("微软云端拒绝请求");
+      const blob = await response.blob();
+      const audioUrl = URL.createObjectURL(blob);
+      audioPlayerRef.current.src = audioUrl;
+      audioPlayerRef.current.play().catch(e=>console.log(e));
+    } catch(err) {
+      // 备用兜底
+      audioPlayerRef.current.src = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(queryText)}&le=${isAlphabet ? 'en' : 'th'}`;
+      audioPlayerRef.current.play().catch(()=>{});
+    }
   }
 
   function toggleLoveMusic() {
     if (!musicPlayerRef.current) {
-      // 许嵩 -《你若成风》原生流节点链接
       musicPlayerRef.current = new Audio("https://music.163.com/song/media/outer/url?id=5255987.mp3");
       musicPlayerRef.current.loop = true;
       musicPlayerRef.current.volume = 0.4;
@@ -324,7 +338,7 @@ export default function Home() {
                     </button>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '16px' }}>
+                  <div style={{ display: 'flex', gap: '15px' }}>
                     <button onClick={()=>{ setShowPhonetic(false); setCurrentIndex((currentIndex - 1 + words.length) % words.length); }} style={{ flex: 1, backgroundColor: 'rgba(25, 25, 28, 0.4)', border: '1px solid rgba(255,255,255,0.05)', padding: '16px', borderRadius: '14px', color: '#a1a1aa', cursor: 'pointer' }}>◁ 上一个</button>
                     <button onClick={handleNextWord} style={{ flex: 1, backgroundColor: '#dfb28c', border: 'none', padding: '16px', borderRadius: '14px', fontWeight: '900', color: '#09090b', cursor: 'pointer' }}>下一个 ▷</button>
                   </div>
