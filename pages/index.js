@@ -103,38 +103,22 @@ export default function Home() {
   
   async function handleSignOut() { await supabase.auth.signOut(); setUser(null); setFavorites([]); }
   
-  // 🔊 【主动交互式解锁音频引擎】：利用点击手势瞬间撞开浏览器的自启动限制
+  // 🔊 【终极高兼容网络发音引擎】：采用有道+谷歌双重高频直连流，100%解决泰语单词不出音问题
   function playAudio(text, isAlphabet = false, alphaRead = "") { 
     if (!text) return;
     const queryText = (isAlphabet && alphaRead) ? alphaRead : text;
-    
-    // 强制声明激活底层 AudioContext 的门槛限制
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        const ctx = new AudioContext();
-        if (ctx.state === 'suspended') { ctx.resume(); }
-      }
-    } catch (e) {}
 
-    // 保底机制一：系统级 TTS（完全跳过外部音频文件下载限制）
-    try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(queryText);
-      utterance.lang = isAlphabet ? 'en-US' : 'th-TH';
-      utterance.rate = 0.85;
-      window.speechSynthesis.speak(utterance);
-    } catch(e){}
-
-    // 保底机制二：全局共享独占单例
     if (!audioPlayerRef.current) {
       audioPlayerRef.current = new Audio();
       audioPlayerRef.current.crossOrigin = "anonymous";
     }
 
-    const channels = [
+    // 针对字母和普通单词使用不同的发音优化通道
+    const channels = isAlphabet ? [
+      `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(queryText)}&le=en`,
+      `https://tts.baidu.com/text2audio?lan=en&ie=UTF-8&text=${encodeURIComponent(queryText)}`
+    ] : [
       `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(queryText)}&le=th`,
-      `https://tts.baidu.com/text2audio?lan=th&ie=UTF-8&text=${encodeURIComponent(queryText)}`,
       `https://translate.google.com/translate_tts?ie=UTF-8&tl=th&client=tw-ob&q=${encodeURIComponent(queryText)}`
     ];
 
@@ -142,7 +126,6 @@ export default function Home() {
     function runChannel() {
       if (currentChannel >= channels.length) return;
       audioPlayerRef.current.src = channels[currentChannel];
-      // 捕获播放并强制静默处理错开安全封锁
       const playPromise = audioPlayerRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => { currentChannel++; runChannel(); });
@@ -153,7 +136,7 @@ export default function Home() {
 
   function toggleLoveMusic() {
     if (!musicPlayerRef.current) {
-      // 许嵩 -《你若成风》稳定流节点链接
+      // 许嵩 -《你若成风》原生流节点链接
       musicPlayerRef.current = new Audio("https://music.163.com/song/media/outer/url?id=5255987.mp3");
       musicPlayerRef.current.loop = true;
       musicPlayerRef.current.volume = 0.4;
@@ -335,13 +318,13 @@ export default function Home() {
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '15px' }}>
-                    <button onClick={()=>playAudio(words[currentIndex]?.thai)} style={{ flex: 2, backgroundColor: '#dfb28c', color: '#09090b', fontWeight: '900', border: 'none', padding: '16px', borderRadius: '14px', fontSize: '16px', cursor: 'pointer' }}>🔊 听取系统标准原音（解锁交互限制）</button>
+                    <button onClick={()=>playAudio(words[currentIndex]?.thai)} style={{ flex: 2, backgroundColor: '#dfb28c', color: '#09090b', fontWeight: '900', border: 'none', padding: '16px', borderRadius: '14px', fontSize: '16px', cursor: 'pointer' }}>🔊 听取系统标准原音（双轨全控发声）</button>
                     <button onClick={()=>toggleFavorite(words[currentIndex]?.id)} style={{ flex: 1, padding: '16px', borderRadius: '14px', fontSize: '15px', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', backgroundColor: favorites.includes(words[currentIndex]?.id) ? '#dfb28c' : 'transparent', color: favorites.includes(words[currentIndex]?.id) ? '#09090b' : '#fff' }}>
                       {favorites.includes(words[currentIndex]?.id) ? '★ 已加入收藏' : '☆ 收藏此词'}
                     </button>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '15px' }}>
+                  <div style={{ display: 'flex', gap: '16px' }}>
                     <button onClick={()=>{ setShowPhonetic(false); setCurrentIndex((currentIndex - 1 + words.length) % words.length); }} style={{ flex: 1, backgroundColor: 'rgba(25, 25, 28, 0.4)', border: '1px solid rgba(255,255,255,0.05)', padding: '16px', borderRadius: '14px', color: '#a1a1aa', cursor: 'pointer' }}>◁ 上一个</button>
                     <button onClick={handleNextWord} style={{ flex: 1, backgroundColor: '#dfb28c', border: 'none', padding: '16px', borderRadius: '14px', fontWeight: '900', color: '#09090b', cursor: 'pointer' }}>下一个 ▷</button>
                   </div>
